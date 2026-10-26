@@ -1,0 +1,53 @@
+// Raak — Sprint 0 schema scope: tenancy root + outbox stub only.
+// Domain tables (identity, catalog, requests, quotes, patients, plans, visits,
+// notifications, audit) are added by their owning sprints per docs/13_IMPLEMENTATION_PLAN.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/db/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// docs 06 — tenants. One row per agency workspace (multi-tenant root).
+model Tenant {
+  id              String       @id @default(uuid()) @db.Uuid
+  slug            String       @unique
+  legalName       String       @map("legal_name")
+  displayName     String       @map("display_name")
+  status          TenantStatus @default(PENDING_APPROVAL)
+  timezone        String
+  currency        String       @db.Char(3)
+  travelBufferMin Int          @default(30) @map("travel_buffer_min")
+  supportEmail    String       @map("support_email")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+/// docs 08 — outbox stub: state changes and their events commit in one DB
+/// transaction; a later sprint's worker dispatches due events to BullMQ.
+model OutboxEvent {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String?   @map("tenant_id") @db.Uuid
+  eventType      String    @map("event_type")
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  payloadMinimal Json      @map("payload_minimal")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  processedAt    DateTime? @map("processed_at")
+
+  @@index([processedAt, createdAt])
+  @@map("outbox_events")
+}
