@@ -1,0 +1,28 @@
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+backend/src/db/generated/
+
+# Local environment and runtime files
+.env
+.env.*
+!.env.example
+*.log
+*.pid
+
+# Editors and operating systems
+.agents/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local databases and temporary files
+*.sqlite
+*.sqlite3
+tmp/
+temp/
