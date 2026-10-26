@@ -1,0 +1,54 @@
+# Sprint 0: backing services only. App containers/TLS proxy are Sprint 7 deliverables (ADR-0003).
+name: raak
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: raak
+      POSTGRES_PASSWORD: raak-dev-only
+      POSTGRES_DB: raak
+    ports:
+      - '127.0.0.1:${RAAK_PG_HOST_PORT:-5432}:5432'
+    volumes:
+      - raak-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U raak -d raak']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - '127.0.0.1:${RAAK_REDIS_HOST_PORT:-6379}:6379'
+    volumes:
+      - raak-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  localstack:
+    # Pinned pre-license-gate community emulator; synthetic local development only.
+    image: localstack/localstack:4.0.3
+    environment:
+      SERVICES: s3
+      AWS_ACCESS_KEY_ID: raak
+      AWS_SECRET_ACCESS_KEY: raak-dev-only-secret
+    ports:
+      - '127.0.0.1:4566:4566'
+    volumes:
+      - raak-s3:/var/lib/localstack
+      - ./localstack/init/ready.d/01-buckets.sh:/etc/localstack/init/ready.d/01-buckets.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:4566/_localstack/health || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  raak-pg:
+  raak-redis:
+  raak-s3:
