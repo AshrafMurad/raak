@@ -32,6 +32,9 @@
 5. **Agency settings/branding/notification-policies routes deferred** to Sprint 2 (Sprint 1 bullet list does not include them).
 6. **Customer accounts:** realm model + login/me/logout supported now (needed for I05 duplicate-email test); customer registration screen is Sprint 2+ (guest intake). Sprint 1 creates customer accounts only via seed/tests.
 7. **In-memory rate limiting** (register/login/forgot/invite-accept): acceptable single-instance MVP; swap to Redis when worker fan-out demands (noted as risk).
+8. **Production API ingress:** owner approved tenant/platform same-origin `/v1`
+   routing with validated host preservation (ADR-0008), replacing the earlier
+   illustrative central browser API hostname.
 
 ## Review Focus
 
