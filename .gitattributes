@@ -7,3 +7,6 @@
 *.webp binary
 *.ico binary
 *.zip binary
+
+# Preserve vendored upstream skill formatting and content hashes.
+.agents/skills/** -whitespace
