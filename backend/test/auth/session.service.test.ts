@@ -20,13 +20,16 @@ describe.skipIf(!hasDatabase)('session service', () => {
   let db: DatabaseClient;
   let syntheticPassword: string;
   const now = () => new Date('2026-06-01T12:00:00Z');
+  /** Fixtures owned by THIS file; cleanup never touches other suites' rows. */
+  const createdTenantIds: string[] = [];
+  const createdPrincipalIds: string[] = [];
 
   beforeAll(async () => {
     syntheticPassword = await hashPassword('Synthetic-Test-1!');
   });
 
   async function makeTenant(slug: string, status: 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED') {
-    return db.tenant.create({
+    const tenant = await db.tenant.create({
       data: {
         slug,
         legalName: `Tenant ${slug} (synthetic)`,
@@ -37,21 +40,36 @@ describe.skipIf(!hasDatabase)('session service', () => {
         supportEmail: `support@${slug}.example.invalid`,
       },
     });
+    createdTenantIds.push(tenant.id);
+    return tenant;
   }
 
   async function makeStaff(tenantId: string, email: string, role: StaffRole = 'CARE_COORDINATOR') {
-    return db.staffAccount.create({
+    const staff = await db.staffAccount.create({
       data: { tenantId, emailNormalized: email, passwordHash: syntheticPassword, role, status: 'ACTIVE', emailVerifiedAt: now() },
     });
+    createdPrincipalIds.push(staff.id);
+    return staff;
   }
 
   beforeEach(async () => {
     db = getPrisma();
-    await db.authSession.deleteMany();
-    await db.emailToken.deleteMany();
-    await db.staffInvitation.deleteMany();
-    await db.auditEvent.deleteMany();
-    await db.caregiver.deleteMany();
+    // Scoped cleanup: only rows this suite created (guards suite owns its own).
+    const scope = {
+      OR: [
+        { tenantId: { in: createdTenantIds } },
+        { principalId: { in: [...createdPrincipalIds] } },
+      ],
+    };
+    if (createdTenantIds.length > 0 || createdPrincipalIds.length > 0) {
+      await db.authSession.deleteMany({ where: scope });
+      await db.emailToken.deleteMany({
+        where: { principalId: { in: createdPrincipalIds } },
+      });
+      await db.caregiver.deleteMany({ where: { tenantId: { in: createdTenantIds } } });
+      await db.staffInvitation.deleteMany({ where: { tenantId: { in: createdTenantIds } } });
+      await db.auditEvent.deleteMany({ where: { tenantId: { in: createdTenantIds } } });
+    }
     await db.staffAccount.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
     await db.customerAccount.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
     await db.platformOperator.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
@@ -84,6 +102,7 @@ describe.skipIf(!hasDatabase)('session service', () => {
     const operator = await db.platformOperator.create({
       data: { emailNormalized: 'op@sessions-test.invalid', passwordHash: syntheticPassword, status: 'ACTIVE' },
     });
+    createdPrincipalIds.push(operator.id);
     const { sessionToken } = await createSession(db, {
       principalType: 'PLATFORM_OPERATOR',
       principalId: operator.id,
@@ -258,6 +277,7 @@ describe.skipIf(!hasDatabase)('session service', () => {
         emailVerifiedAt: now(),
       },
     });
+    createdPrincipalIds.push(customer.id);
     const { sessionToken } = await createSession(db, {
       principalType: 'AGENCY_CUSTOMER',
       principalId: customer.id,
