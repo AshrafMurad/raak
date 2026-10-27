@@ -195,6 +195,49 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     expect(res.body.error.code).toBe('STATE_TRANSITION_INVALID');
   });
 
+  it('serializes concurrent lifecycle transitions to one state change', async () => {
+    let firstSuspend!: Promise<request.Response>;
+    let secondSuspend!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "tenants" WHERE "id" = ${tenantId}::uuid FOR UPDATE`;
+      firstSuspend = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'Concurrent synthetic A' }));
+      secondSuspend = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'Concurrent synthetic B' }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const suspensions = await Promise.all([firstSuspend, secondSuspend]);
+    expect(suspensions.map((response) => response.status).sort()).toEqual([200, 409]);
+
+    let firstActivate!: Promise<request.Response>;
+    let secondActivate!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "tenants" WHERE "id" = ${tenantId}::uuid FOR UPDATE`;
+      firstActivate = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/activate`, { reason: 'Concurrent synthetic A' }));
+      secondActivate = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/activate`, { reason: 'Concurrent synthetic B' }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const activations = await Promise.all([firstActivate, secondActivate]);
+    expect(activations.map((response) => response.status).sort()).toEqual([200, 409]);
+  });
+
+  it('does not create a login session after concurrent suspension commits', async () => {
+    let login!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.tenant.update({ where: { id: tenantId }, data: { status: 'SUSPENDED' } });
+      await tx.authSession.updateMany({ where: { tenantId, revokedAt: null }, data: { revokedAt: new Date() } });
+      login = Promise.resolve(
+        request(app)
+          .post('/v1/auth/login')
+          .set('Host', `${slug}.localhost`)
+          .send({ email: staffEmail, password: PASSWORD }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    const response = await login;
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('UNAUTHENTICATED');
+    await db.tenant.update({ where: { id: tenantId }, data: { status: 'ACTIVE' } });
+  });
+
   it('exposes operator audit entries with minimal metadata', async () => {
     const res = await platformGet('/v1/platform/audit?limit=50');
     expect(res.status).toBe(200);

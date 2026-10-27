@@ -23,7 +23,7 @@ const FIXTURE = {
   password: 'Synthetic-Test-1!',
 };
 
-function makeApp(rateOverride?: { registerPerHour: number }): Express {
+function makeApp(options?: { registerPerHour?: number; now?: () => Date }): Express {
   const env = {
     ...loadApiEnv({} as NodeJS.ProcessEnv),
     BASE_DOMAIN: FIXTURE.baseDomain,
@@ -34,9 +34,11 @@ function makeApp(rateOverride?: { registerPerHour: number }): Express {
     env,
     logger: silentLogger,
     health: { checkDatabase: async () => true },
-    now: () => new Date(),
+    now: options?.now ?? (() => new Date()),
     db: getPrisma(),
-    ...(rateOverride ? { rateLimits: { registerPerHour: rateOverride.registerPerHour } } : {}),
+    ...(options?.registerPerHour !== undefined
+      ? { rateLimits: { registerPerHour: options.registerPerHour } }
+      : {}),
   });
 }
 
@@ -111,6 +113,28 @@ describe.skipIf(!hasDatabase)('agency registration and owner verification', () =
     expect(res.body.error.code).toBe('TENANT_SLUG_TAKEN');
   });
 
+  it('maps concurrent duplicate registration to TENANT_SLUG_TAKEN', async () => {
+    const concurrentSlug = `${slug}-race`;
+    const concurrentApp = makeApp({ registerPerHour: 100 });
+    try {
+      const responses = await Promise.all([
+        request(concurrentApp).post('/v1/agencies/register').set('Host', 'platform.localhost').send(registerPayload(concurrentSlug)),
+        request(concurrentApp).post('/v1/agencies/register').set('Host', 'platform.localhost').send(registerPayload(concurrentSlug)),
+      ]);
+      expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+      expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TENANT_SLUG_TAKEN');
+    } finally {
+      const tenant = await db.tenant.findUnique({ where: { slug: concurrentSlug } });
+      if (tenant) {
+        await db.emailToken.deleteMany({ where: { tenantId: tenant.id } });
+        await db.outboxEvent.deleteMany({ where: { tenantId: tenant.id } });
+        await db.auditEvent.deleteMany({ where: { tenantId: tenant.id } });
+        await db.staffAccount.deleteMany({ where: { tenantId: tenant.id } });
+        await db.tenant.delete({ where: { id: tenant.id } });
+      }
+    }
+  });
+
   it('rejects reserved slugs and malformed bodies', async () => {
     const reserved = await request(app)
       .post('/v1/agencies/register')
@@ -155,6 +179,57 @@ describe.skipIf(!hasDatabase)('agency registration and owner verification', () =
       .send({ token });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('TOKEN_ALREADY_USED');
+  });
+
+  it('allows only one concurrent verification-token consumer', async () => {
+    const staff = await db.staffAccount.findFirst({ where: { emailNormalized: ownerEmail } });
+    const generated = generateToken();
+    const tokenRow = await db.emailToken.create({
+      data: {
+        tenantId: staff!.tenantId,
+        purpose: 'OWNER_VERIFICATION',
+        principalType: 'AGENCY_STAFF',
+        principalId: staff!.id,
+        tokenHash: generated.tokenHash,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    let first!: Promise<request.Response>;
+    let second!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "email_tokens" WHERE "id" = ${tokenRow.id}::uuid FOR UPDATE`;
+      first = Promise.resolve(request(app).post('/v1/auth/verify-email').set('Host', 'platform.localhost').send({ token: generated.token }));
+      second = Promise.resolve(request(app).post('/v1/auth/verify-email').set('Host', 'platform.localhost').send({ token: generated.token }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const responses = await Promise.all([first, second]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TOKEN_ALREADY_USED');
+  });
+
+  it('rejects a token that expires between validation and atomic consumption', async () => {
+    const staff = await db.staffAccount.findFirst({ where: { emailNormalized: ownerEmail } });
+    const generated = generateToken();
+    const beforeExpiry = new Date('2026-10-27T12:00:00.000Z');
+    const afterExpiry = new Date('2026-10-27T12:00:02.000Z');
+    await db.emailToken.create({
+      data: {
+        tenantId: staff!.tenantId,
+        purpose: 'OWNER_VERIFICATION',
+        principalType: 'AGENCY_STAFF',
+        principalId: staff!.id,
+        tokenHash: generated.tokenHash,
+        expiresAt: new Date('2026-10-27T12:00:01.000Z'),
+      },
+    });
+    let nowCalls = 0;
+    const boundaryApp = makeApp({ now: () => (nowCalls++ === 0 ? beforeExpiry : afterExpiry) });
+    const response = await request(boundaryApp)
+      .post('/v1/auth/verify-email')
+      .set('Host', 'platform.localhost')
+      .send({ token: generated.token });
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('TOKEN_EXPIRED');
   });
 
   it('refuses an expired token with TOKEN_EXPIRED', async () => {
@@ -299,6 +374,28 @@ describe.skipIf(!hasDatabase)('realm login, logout and me', () => {
     expect(unknown.body.error.message).toBe(wrongPassword.body.error.message);
   });
 
+  it('rechecks tenant status instead of trusting a stale resolved realm', async () => {
+    const tenant = await db.tenant.findUnique({ where: { slug: slugA } });
+    await db.tenant.update({ where: { id: tenant!.id }, data: { status: 'SUSPENDED' } });
+    try {
+      const { createAuthService } = await import('../../src/modules/auth/auth.service');
+      const service = createAuthService({
+        db,
+        now: () => new Date(),
+        buildLink: () => 'https://example.invalid/action',
+      });
+      await expect(
+        service.login(
+          { kind: 'AGENCY', tenant: { tenantId: tenant!.id, slug: slugA, status: 'ACTIVE' } },
+          sharedEmail,
+          FIXTURE.password,
+        ),
+      ).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' });
+    } finally {
+      await db.tenant.update({ where: { id: tenant!.id }, data: { status: 'ACTIVE' } });
+    }
+  });
+
   it('logout revokes the session (requires CSRF)', async () => {
     const login = await request(app)
       .post('/v1/auth/login')
@@ -396,14 +493,16 @@ describe.skipIf(!hasDatabase)('password reset', () => {
     await disconnectPrisma();
   });
 
-  async function resetTokenFor(): Promise<string> {
+  async function resetTokensFor(): Promise<string[]> {
     const staff = await db.staffAccount.findFirst({ where: { emailNormalized: email } });
-    const event = await db.outboxEvent.findFirst({
+    const events = await db.outboxEvent.findMany({
       where: { aggregateId: staff!.id, eventType: 'email.password_reset' },
       orderBy: { createdAt: 'desc' },
     });
-    const payload = event!.payloadMinimal as { link?: string };
-    return payload.link!.match(/token=([A-Za-z0-9_-]+)/)![1]!;
+    return events.map((event) => {
+      const payload = event.payloadMinimal as { link?: string };
+      return payload.link!.match(/token=([A-Za-z0-9_-]+)/)![1]!;
+    });
   }
 
   it('acknowledges forgot-password generically and never enumerates', async () => {
@@ -421,6 +520,29 @@ describe.skipIf(!hasDatabase)('password reset', () => {
     expect(unknown.body).toEqual(known.body);
   });
 
+  it('does not issue a reset token from a request raced by a credential version change', async () => {
+    const staff = await db.staffAccount.findFirst({ where: { emailNormalized: email } });
+    const before = await db.emailToken.count({
+      where: { principalId: staff!.id, purpose: 'PASSWORD_RESET' },
+    });
+    let requestReset!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.staffAccount.update({
+        where: { id: staff!.id },
+        data: { sessionVersion: { increment: 1 } },
+      });
+      requestReset = Promise.resolve(
+        request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect((await requestReset).status).toBe(202);
+    const after = await db.emailToken.count({
+      where: { principalId: staff!.id, purpose: 'PASSWORD_RESET' },
+    });
+    expect(after).toBe(before);
+  });
+
   it('resets the password, invalidates old sessions and single-uses the token', async () => {
     const login = await request(app)
       .post('/v1/auth/login')
@@ -430,13 +552,21 @@ describe.skipIf(!hasDatabase)('password reset', () => {
     const session = /raak_session_agency=([^;]+)/.exec(((login.headers['set-cookie'] ?? []) as unknown as string[]).join('\n'))?.[1];
 
     await request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email });
-    const token = await resetTokenFor();
+    await request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email });
+    const [token, olderToken] = await resetTokensFor();
 
     const reset = await request(app)
       .post('/v1/auth/reset-password')
       .set('Host', 'platform.localhost')
       .send({ token, newPassword: 'New-Synthetic-2!' });
     expect(reset.status).toBe(200);
+
+    const older = await request(app)
+      .post('/v1/auth/reset-password')
+      .set('Host', 'platform.localhost')
+      .send({ token: olderToken, newPassword: 'Stale-Link-3!' });
+    expect(older.status).toBe(409);
+    expect(older.body.error.code).toBe('TOKEN_ALREADY_USED');
 
     const oldSession = await request(app)
       .get('/v1/auth/me')

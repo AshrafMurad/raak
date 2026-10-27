@@ -17,7 +17,7 @@ const hasDatabase = Boolean(process.env['DATABASE_URL']);
 const silentLogger: Logger = createLogger({ service: 'test', write: () => {} });
 const PASSWORD = 'Synthetic-Test-1!';
 
-function makeApp(): Express {
+function makeApp(now: () => Date = () => new Date()): Express {
   const env = {
     ...loadApiEnv({} as NodeJS.ProcessEnv),
     BASE_DOMAIN: 'localhost',
@@ -28,7 +28,7 @@ function makeApp(): Express {
     env,
     logger: silentLogger,
     health: { checkDatabase: async () => true },
-    now: () => new Date(),
+    now,
     db: getPrisma(),
   });
 }
@@ -211,6 +211,88 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
       .send({ token: gen.token, password: 'Whatever-9!' });
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('TOKEN_EXPIRED');
+  });
+
+  it('rejects an invitation that expires before its atomic consumption', async () => {
+    const { generateToken } = await import('../../src/modules/auth/crypto');
+    const generated = generateToken();
+    const beforeExpiry = new Date('2026-10-27T12:00:00.000Z');
+    const afterExpiry = new Date('2026-10-27T12:00:02.000Z');
+    await db.staffInvitation.create({
+      data: {
+        tenantId: ids.tenantA!,
+        emailNormalized: `boundary@${slugA}.invalid`,
+        role: 'CAREGIVER',
+        tokenHash: generated.tokenHash,
+        expiresAt: new Date('2026-10-27T12:00:01.000Z'),
+        createdByStaffId: ids.owner!,
+      },
+    });
+    let nowCalls = 0;
+    const boundaryApp = makeApp(() => (nowCalls++ === 0 ? beforeExpiry : afterExpiry));
+    const response = await request(boundaryApp)
+      .post('/v1/staff/invitations/accept')
+      .set('Host', 'platform.localhost')
+      .send({ token: generated.token, password: 'Boundary-Pass-1!' });
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('TOKEN_EXPIRED');
+  });
+
+  it('does not create an invitation after concurrent suspension commits', async () => {
+    let invitation!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'SUSPENDED' } });
+      invitation = Promise.resolve(
+        postInvite(ownerCookies, { email: `raced@${slugA}.invalid`, role: 'CAREGIVER' }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const response = await invitation;
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('TENANT_INACTIVE');
+    await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+  });
+
+  it('does not accept an invitation after concurrent suspension commits', async () => {
+    const email = `suspension-accept@${slugA}.invalid`;
+    const issued = await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
+    expect(issued.status).toBe(201);
+    const token = await latestInvitationToken(email);
+    let acceptance!: Promise<request.Response>;
+    await db.$transaction(async (tx) => {
+      await tx.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'SUSPENDED' } });
+      acceptance = Promise.resolve(
+        request(app)
+          .post('/v1/staff/invitations/accept')
+          .set('Host', 'platform.localhost')
+          .send({ token, password: 'Suspended-Pass-1!' }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const response = await acceptance;
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('TENANT_INACTIVE');
+    const invitation = await db.staffInvitation.findUnique({ where: { tokenHash: (await import('../../src/modules/auth/crypto')).hashToken(token) } });
+    expect(invitation?.consumedAt).toBeNull();
+    await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+  });
+
+  it('maps concurrent same-email invitation acceptance to a state conflict', async () => {
+    const email = `duplicate-accept@${slugA}.invalid`;
+    const first = await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
+    const second = await postInvite(ownerCookies, { email, role: 'AGENCY_ADMIN' });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    const events = await db.outboxEvent.findMany({
+      where: { aggregateId: { in: [first.body.data.invitationId, second.body.data.invitationId] }, eventType: 'email.staff_invitation' },
+    });
+    const tokens = events.map((event) => ((event.payloadMinimal as { link: string }).link.match(/token=([A-Za-z0-9_-]+)/)![1]!));
+    const responses = await Promise.all(tokens.map((token) => request(app)
+      .post('/v1/staff/invitations/accept')
+      .set('Host', 'platform.localhost')
+      .send({ token, password: 'Duplicate-Pass-1!' })));
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('STATE_TRANSITION_INVALID');
   });
 
   it('a suspended tenant kills its sessions: invitation creation becomes unauthenticated (I15 adjacency)', async () => {

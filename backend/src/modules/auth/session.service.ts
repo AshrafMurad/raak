@@ -62,7 +62,10 @@ export interface ResolvedSession {
   operator?: ResolvedOperator;
 }
 
-export async function createSession(db: DatabaseClient, input: CreateSessionInput): Promise<CreatedSession> {
+export async function createSession(
+  db: DatabaseClient | Prisma.TransactionClient,
+  input: CreateSessionInput,
+): Promise<CreatedSession> {
   const now = input.now ?? (() => new Date());
   const issuedAt = now();
   const expiresAt = new Date(issuedAt.getTime() + input.ttlSeconds * 1000);

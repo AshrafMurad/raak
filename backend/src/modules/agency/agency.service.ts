@@ -9,6 +9,7 @@ import { enqueueOutbox } from '../../db/outbox';
 import { ApiError } from '../../api-error';
 import type { RegisterAgencyDto } from '../../contracts';
 import { generateToken, hashPassword } from '../auth/crypto';
+import { Prisma } from '../../db/generated/prisma/client';
 
 export const OWNER_VERIFICATION_TTL_SECONDS = 24 * 60 * 60;
 
@@ -32,7 +33,8 @@ export function createAgencyService(deps: AgencyServiceDeps) {
       const verification = generateToken();
       const issuedAt = deps.now();
 
-      return deps.db.$transaction(async (tx) => {
+      try {
+        return await deps.db.$transaction(async (tx) => {
         const existing = await tx.tenant.findUnique({ where: { slug: input.slug } });
         if (existing) {
           throw new ApiError(409, 'TENANT_SLUG_TAKEN', 'This agency slug is already taken.');
@@ -86,7 +88,13 @@ export function createAgencyService(deps: AgencyServiceDeps) {
           metadata: { slug: tenant.slug },
         });
         return { tenantId: tenant.id, slug: tenant.slug, status: 'PENDING_APPROVAL' as const };
-      });
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ApiError(409, 'TENANT_SLUG_TAKEN', 'This agency slug is already taken.');
+        }
+        throw error;
+      }
     },
   };
 }

@@ -107,7 +107,14 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         if (current.status !== 'PENDING_APPROVAL' && current.status !== 'SUSPENDED') {
           throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be activated from its current status.');
         }
-        const updated = await tx.tenant.update({ where: { id: tenantId }, data: { status: 'ACTIVE' } });
+        const changed = await tx.tenant.updateMany({
+          where: { id: tenantId, status: current.status },
+          data: { status: 'ACTIVE' },
+        });
+        if (changed.count !== 1) {
+          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be activated from its current status.');
+        }
+        const updated = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } });
         const owner = await tx.staffAccount.findFirst({
           where: { tenantId, role: 'AGENCY_OWNER' },
           orderBy: { createdAt: 'asc' },
@@ -142,7 +149,14 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         if (current.status !== 'ACTIVE') {
           throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be suspended from its current status.');
         }
-        const updated = await tx.tenant.update({ where: { id: tenantId }, data: { status: 'SUSPENDED' } });
+        const changed = await tx.tenant.updateMany({
+          where: { id: tenantId, status: 'ACTIVE' },
+          data: { status: 'SUSPENDED' },
+        });
+        if (changed.count !== 1) {
+          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be suspended from its current status.');
+        }
+        const updated = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } });
         await revokeAllSessionsForTenant(tx, tenantId, deps.now);
         await appendAudit(tx, {
           tenantId,

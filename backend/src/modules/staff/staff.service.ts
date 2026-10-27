@@ -11,6 +11,8 @@ import { ApiError } from '../../api-error';
 import type { CreateInvitationDto, AcceptInvitationDto } from '../../contracts';
 import { generateToken, hashPassword, hashToken } from '../auth/crypto';
 import type { AuthState } from '../auth/guards';
+import { lockTenantStatus } from '../../db/tenant-lock';
+import { Prisma } from '../../db/generated/prisma/client';
 
 export const INVITATION_TTL_SECONDS = 48 * 60 * 60;
 
@@ -37,6 +39,10 @@ export function createStaffService(deps: StaffServiceDeps) {
       const expiresAt = new Date(issuedAt.getTime() + INVITATION_TTL_SECONDS * 1000);
 
       const invitation = await db.$transaction(async (tx) => {
+        const tenantStatus = await lockTenantStatus(tx, tenantId);
+        if (tenantStatus !== 'ACTIVE') {
+          throw new ApiError(403, 'TENANT_INACTIVE', 'This tenant is not active.');
+        }
         const created = await tx.staffInvitation.create({
           data: {
             tenantId,
@@ -89,33 +95,46 @@ export function createStaffService(deps: StaffServiceDeps) {
         throw new ApiError(401, 'TOKEN_EXPIRED', 'This invitation link has expired.');
       }
 
-      await db.$transaction(async (tx) => {
-        const consumed = await tx.staffInvitation.updateMany({
-          where: { id: row.id, consumedAt: null },
-          data: { consumedAt: deps.now() },
+      try {
+        await db.$transaction(async (tx) => {
+          const tenantStatus = await lockTenantStatus(tx, row.tenantId);
+          if (tenantStatus !== 'ACTIVE') {
+            throw new ApiError(403, 'TENANT_INACTIVE', 'This tenant is not active.');
+          }
+          const consumedAt = deps.now();
+          const consumed = await tx.staffInvitation.updateMany({
+          where: { id: row.id, consumedAt: null, expiresAt: { gt: consumedAt } },
+          data: { consumedAt },
         });
-        if (consumed.count !== 1) {
-          throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This invitation link was already used.');
-        }
-        const existing = await tx.staffAccount.findUnique({
+          if (consumed.count !== 1) {
+            const current = await tx.staffInvitation.findUnique({ where: { id: row.id } });
+            if (current?.consumedAt) {
+              throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This invitation link was already used.');
+            }
+            if (current && current.expiresAt.getTime() <= consumedAt.getTime()) {
+              throw new ApiError(401, 'TOKEN_EXPIRED', 'This invitation link has expired.');
+            }
+            throw new ApiError(401, 'UNAUTHENTICATED', 'This invitation link is not valid.');
+          }
+          const existing = await tx.staffAccount.findUnique({
           where: { tenantId_emailNormalized: { tenantId: row.tenantId, emailNormalized: row.emailNormalized } },
         });
-        if (existing) {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'An account with this email already exists.');
-        }
-        const account = await tx.staffAccount.create({
+          if (existing) {
+            throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'An account with this email already exists.');
+          }
+          const account = await tx.staffAccount.create({
           data: {
             tenantId: row.tenantId,
             emailNormalized: row.emailNormalized,
             passwordHash,
             role: row.role,
             status: 'ACTIVE',
-            emailVerifiedAt: deps.now(),
+            emailVerifiedAt: consumedAt,
           },
         });
-        const profile = row.caregiverProfileJson as { name?: string; professionalCategory?: string } | null;
-        if (row.role === 'CAREGIVER' && profile?.name && profile.professionalCategory) {
-          await tx.caregiver.create({
+          const profile = row.caregiverProfileJson as { name?: string; professionalCategory?: string } | null;
+          if (row.role === 'CAREGIVER' && profile?.name && profile.professionalCategory) {
+            await tx.caregiver.create({
             data: {
               tenantId: row.tenantId,
               staffAccountId: account.id,
@@ -123,9 +142,9 @@ export function createStaffService(deps: StaffServiceDeps) {
               professionalCategory: profile.professionalCategory,
               operationalStatus: 'INACTIVE',
             },
-          });
-        }
-        await appendAudit(tx, {
+            });
+          }
+          await appendAudit(tx, {
           tenantId: row.tenantId,
           actorType: 'AGENCY_STAFF',
           actorId: account.id,
@@ -133,8 +152,14 @@ export function createStaffService(deps: StaffServiceDeps) {
           subjectType: 'staff_account',
           subjectId: account.id,
           metadata: { role: row.role },
+          });
         });
-      });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'An account with this email already exists.');
+        }
+        throw error;
+      }
     },
   };
 }

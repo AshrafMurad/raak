@@ -18,6 +18,8 @@ import {
 import type { AcceptedRealm } from './host-resolver';
 import type { AuthState } from './guards';
 import type { AuthMeDto } from '../../contracts';
+import type { Prisma } from '../../db/generated/prisma/client';
+import { lockTenantStatus } from '../../db/tenant-lock';
 
 export const PASSWORD_RESET_TTL_SECONDS = 30 * 60;
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
@@ -52,20 +54,51 @@ export function createAuthService(deps: AuthServiceDeps) {
     return { row };
   }
 
+  async function claimEmailToken(
+    tx: Prisma.TransactionClient,
+    row: { id: string },
+    purpose: 'OWNER_VERIFICATION' | 'PASSWORD_RESET',
+  ): Promise<Date> {
+    const consumedAt = deps.now();
+    const claimed = await tx.emailToken.updateMany({
+      where: { id: row.id, purpose, consumedAt: null, expiresAt: { gt: consumedAt } },
+      data: { consumedAt },
+    });
+    if (claimed.count === 1) return consumedAt;
+
+    const current = await tx.emailToken.findUnique({ where: { id: row.id } });
+    if (current?.consumedAt) {
+      throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This link was already used.');
+    }
+    if (current && current.expiresAt.getTime() <= consumedAt.getTime()) {
+      throw new ApiError(401, 'TOKEN_EXPIRED', 'This link has expired.');
+    }
+    throw new ApiError(401, 'UNAUTHENTICATED', 'This link is not valid.');
+  }
+
+  async function lockResetPrincipal(
+    tx: Prisma.TransactionClient,
+    row: { principalType: string; principalId: string },
+  ): Promise<number | null> {
+    let rows: Array<{ sessionVersion: number }>;
+    if (row.principalType === 'PLATFORM_OPERATOR') {
+      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "platform_operators" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+    } else if (row.principalType === 'AGENCY_STAFF') {
+      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "staff_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+    } else {
+      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "customer_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+    }
+    return rows[0]?.sessionVersion ?? null;
+  }
+
   return {
     async verifyOwnerEmail(token: string): Promise<void> {
       const { row } = await consumeEmailToken(token, 'OWNER_VERIFICATION');
       await db.$transaction(async (tx) => {
-        const updated = await tx.emailToken.update({
-          where: { id: row.id, consumedAt: null },
-          data: { consumedAt: deps.now() },
-        });
-        if (!updated) {
-          throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This link was already used.');
-        }
+        const consumedAt = await claimEmailToken(tx, row, 'OWNER_VERIFICATION');
         await tx.staffAccount.update({
           where: { id: row.principalId },
-          data: { status: 'ACTIVE', emailVerifiedAt: deps.now() },
+          data: { status: 'ACTIVE', emailVerifiedAt: consumedAt },
         });
         await appendAudit(tx, {
           ...(row.tenantId !== null ? { tenantId: row.tenantId } : {}),
@@ -134,26 +167,37 @@ export function createAuthService(deps: AuthServiceDeps) {
         }
       }
 
-      const created = await createSession(db, {
-        principalType,
-        principalId: principal.id,
-        ...(principalType !== 'PLATFORM_OPERATOR' && realm.kind === 'AGENCY'
-          ? { tenantId: realm.tenant.tenantId }
-          : {}),
-        sessionVersion: principal.sessionVersion,
-        ttlSeconds: SESSION_TTL_SECONDS,
-        now: deps.now,
-      });
-      await db.auditEvent.create({
-        data: {
-          ...(realm.kind === 'AGENCY' ? { tenantId: realm.tenant.tenantId } : {}),
-          actorType: principalType,
-          actorId: principal.id,
-          action: 'auth.login',
-          subjectType: 'auth_session',
-          subjectId: created.sessionId,
-          metadataJson: {},
-        },
+      const created = await db.$transaction(async (tx) => {
+        if (realm.kind === 'AGENCY') {
+          const status = await lockTenantStatus(tx, realm.tenant.tenantId);
+          const tenantUsable =
+            status === 'ACTIVE' ||
+            (status === 'PENDING_APPROVAL' && principalType === 'AGENCY_STAFF' && me.role === 'AGENCY_OWNER');
+          if (!tenantUsable) throw GENERIC_LOGIN_FAILURE;
+          me = { ...me, tenant: { ...me.tenant!, status } };
+        }
+        const session = await createSession(tx, {
+          principalType,
+          principalId: principal.id,
+          ...(principalType !== 'PLATFORM_OPERATOR' && realm.kind === 'AGENCY'
+            ? { tenantId: realm.tenant.tenantId }
+            : {}),
+          sessionVersion: principal.sessionVersion,
+          ttlSeconds: SESSION_TTL_SECONDS,
+          now: deps.now,
+        });
+        await tx.auditEvent.create({
+          data: {
+            ...(realm.kind === 'AGENCY' ? { tenantId: realm.tenant.tenantId } : {}),
+            actorType: principalType,
+            actorId: principal.id,
+            action: 'auth.login',
+            subjectType: 'auth_session',
+            subjectId: session.sessionId,
+            metadataJson: {},
+          },
+        });
+        return session;
       });
       return { created, me };
     },
@@ -178,12 +222,14 @@ export function createAuthService(deps: AuthServiceDeps) {
       let accountId: string | null = null;
       let principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER' | null = null;
       let tenantId: string | null = null;
+      let accountSessionVersion: number | null = null;
 
       if (realm.kind === 'PLATFORM') {
         const operator = await db.platformOperator.findUnique({ where: { emailNormalized: email } });
         if (operator?.status === 'ACTIVE') {
           accountId = operator.id;
           principalType = 'PLATFORM_OPERATOR';
+          accountSessionVersion = operator.sessionVersion;
         }
       } else {
         const staff = await db.staffAccount.findUnique({
@@ -193,6 +239,7 @@ export function createAuthService(deps: AuthServiceDeps) {
           accountId = staff.id;
           principalType = 'AGENCY_STAFF';
           tenantId = staff.tenantId;
+          accountSessionVersion = staff.sessionVersion;
         } else {
           const customer = await db.customerAccount.findUnique({
             where: { tenantId_emailNormalized: { tenantId: realm.tenant.tenantId, emailNormalized: email } },
@@ -201,13 +248,19 @@ export function createAuthService(deps: AuthServiceDeps) {
             accountId = customer.id;
             principalType = 'AGENCY_CUSTOMER';
             tenantId = customer.tenantId;
+            accountSessionVersion = customer.sessionVersion;
           }
         }
       }
-      if (!accountId || !principalType) return; // generic 202 either way
+      if (!accountId || !principalType || accountSessionVersion === null) return; // generic 202 either way
 
       const reset = generateToken();
       await db.$transaction(async (tx) => {
+        const currentSessionVersion = await lockResetPrincipal(tx, {
+          principalType,
+          principalId: accountId,
+        });
+        if (currentSessionVersion !== accountSessionVersion) return;
         await tx.emailToken.create({
           data: {
             ...(tenantId !== null ? { tenantId } : {}),
@@ -243,13 +296,17 @@ export function createAuthService(deps: AuthServiceDeps) {
       const { row } = await consumeEmailToken(token, 'PASSWORD_RESET');
       const passwordHash = await hashPassword(newPassword);
       await db.$transaction(async (tx) => {
-        const updated = await tx.emailToken.update({
-          where: { id: row.id, consumedAt: null },
-          data: { consumedAt: deps.now() },
+        await lockResetPrincipal(tx, row);
+        const consumedAt = await claimEmailToken(tx, row, 'PASSWORD_RESET');
+        await tx.emailToken.updateMany({
+          where: {
+            purpose: 'PASSWORD_RESET',
+            principalType: row.principalType as 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER',
+            principalId: row.principalId,
+            consumedAt: null,
+          },
+          data: { consumedAt },
         });
-        if (!updated) {
-          throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This link was already used.');
-        }
         if (row.principalType === 'PLATFORM_OPERATOR') {
           const op = await tx.platformOperator.update({
             where: { id: row.principalId },
