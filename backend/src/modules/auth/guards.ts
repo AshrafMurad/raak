@@ -16,6 +16,7 @@ import { sessionCookieName, csrfCookieName } from './cookies';
 import { authorize, type PermissionAction } from './permissions';
 
 export interface AuthState {
+  sessionId: string;
   session: ServerSessionContext;
   realm: HostRealm & { kind: 'PLATFORM' | 'AGENCY' };
   csrfTokenHash: string;
@@ -133,6 +134,7 @@ export function requireSession(db: DatabaseClient): RequestHandler {
         }
       }
       req.auth = {
+        sessionId: resolved.sessionId,
         session: resolved.session,
         realm,
         csrfTokenHash: resolved.csrfTokenHash,

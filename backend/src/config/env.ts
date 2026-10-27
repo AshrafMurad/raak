@@ -15,6 +15,8 @@ export const ApiEnvSchema = z.object({
     .optional(),
   REDIS_URL: z.string().min(1).optional(),
   BASE_DOMAIN: z.string().min(1).optional(),
+  PLATFORM_HOST: z.string().min(1).optional(),
+  API_CORS_ORIGINS: z.string().min(1).optional(),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters').optional(),
   TRUSTED_PROXY_HOSTS: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
@@ -51,6 +53,10 @@ function toTrustProxyTokens(hosts: ReadonlyArray<string>): string[] {
 
 export interface AppEnv extends ApiEnv {
   trustProxyTokens: ReadonlyArray<string>;
+  /** Derived: platform.<BASE_DOMAIN> unless PLATFORM_HOST is explicit. */
+  platformHost?: string;
+  /** Parsed comma-separated CORS origin allowlist (browser app origins). */
+  corsOrigins: ReadonlyArray<string>;
 }
 
 export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
@@ -64,8 +70,16 @@ export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         .map((host) => host.trim())
         .filter((host) => host.length > 0)
     : [];
+  const corsOrigins = parsed.data.API_CORS_ORIGINS
+    ? parsed.data.API_CORS_ORIGINS.split(',')
+        .map((origin) => origin.trim().toLowerCase())
+        .filter((origin) => origin.length > 0)
+    : [];
   return {
     ...parsed.data,
     trustProxyTokens: toTrustProxyTokens(hosts),
+    platformHost: parsed.data.PLATFORM_HOST
+      ?? (parsed.data.BASE_DOMAIN ? `platform.${parsed.data.BASE_DOMAIN}` : undefined),
+    corsOrigins,
   };
 }
