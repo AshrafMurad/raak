@@ -1,0 +1,73 @@
+name: backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: raak
+          POSTGRES_PASSWORD: raak-dev-only
+          POSTGRES_DB: raak
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raak -d raak"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://raak:raak-dev-only@localhost:5432/raak
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: ci-only-secret-value-at-least-32-bytes
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: backend/.nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm run migrate && npm run seed && npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Migration check
+        run: npm run migrate
+
+      - name: Seed check
+        run: npm run seed
