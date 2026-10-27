@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "title": "Raak — Home Care Coordination",
+    "description": "An operations platform for home-care agencies: requests, quotes, patients, caregivers, and recurring visits in one tenant-isolated workspace."
+  },
+  "brand": {
+    "name": "رعاك",
+    "latin": "Raak"
+  },
+  "badge": "Sprint 0 skeleton (placeholder content)",
+  "title": "Home care coordination platform",
+  "body": "This is a Sprint 0 structural placeholder. Real screens (agency portal, service requests, quotes, scheduling) arrive incrementally per the specification pack's implementation plan.",
+  "switch": {
+    "label": "Switch to Arabic",
+    "to": "العربية"
+  },
+  "footer": "All data in development, test, and demo environments is fully synthetic."
+}

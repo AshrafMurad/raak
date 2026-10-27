@@ -1,0 +1,76 @@
+/*
+ * Raak brand + design tokens — LOCKED by decisions D21–D23 (docs 10).
+ * Semantic names only; components must not reference raw hex values.
+ * Light-first. Typography uses px sizes with explicit line heights (docs 10).
+ */
+
+:root {
+  /* Brand */
+  --raak-brand-primary: #243b70;
+  --raak-brand-primary-hover: #1a2d59;
+  --raak-brand-primary-subtle: #eef1fa;
+  --raak-brand-accent: #7485cf;
+  --raak-brand-accent-subtle: #e9eaf9;
+
+  /* App + surfaces */
+  --raak-app-background: #f8f9fd;
+  --raak-surface-default: #ffffff;
+  --raak-border-default: #e3e7f0;
+
+  /* Text */
+  --raak-text-primary: #202a40;
+  --raak-text-secondary: #647086;
+
+  /* Status (label + tint pairing is a UI concern; never hue alone) */
+  --raak-status-success: #23856a;
+  --raak-status-warning: #a96a16;
+  --raak-status-danger: #c44650;
+  --raak-status-info: #315da3;
+  --raak-status-neutral: #667085;
+
+  /* Typography — families (IBM Plex, D23) */
+  --raak-font-arabic: 'IBM Plex Sans Arabic', 'IBM Plex Sans', system-ui, sans-serif;
+  --raak-font-latin: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+
+  /* Typography — scale: size / line-height (docs 10) */
+  --raak-text-display-size: 36px;
+  --raak-text-display-line: 48px;
+  --raak-text-page-title-size: 28px;
+  --raak-text-page-title-line: 40px;
+  --raak-text-section-title-size: 22px;
+  --raak-text-section-title-line: 34px;
+  --raak-text-card-title-size: 18px;
+  --raak-text-card-title-line: 28px;
+  --raak-text-body-lg-size: 16px;
+  --raak-text-body-lg-line: 28px;
+  --raak-text-body-size: 14px;
+  --raak-text-body-line: 24px;
+  --raak-text-body-sm-size: 13px;
+  --raak-text-body-sm-line: 22px;
+  --raak-text-caption-size: 12px;
+  --raak-text-caption-line: 20px;
+  --raak-text-button-size: 14px;
+  --raak-text-button-line: 20px;
+  --raak-text-table-header-size: 13px;
+  --raak-text-table-header-line: 20px;
+  --raak-text-sidebar-label-size: 14px;
+  --raak-text-sidebar-label-line: 22px;
+  --raak-text-stat-value-size: 28px;
+  --raak-text-stat-value-line: 36px;
+
+  /* Font weights allowed: 400, 500, 600, 700 */
+  --raak-font-weight-regular: 400;
+  --raak-font-weight-medium: 500;
+  --raak-font-weight-semibold: 600;
+  --raak-font-weight-bold: 700;
+
+  /* Shape + elevation */
+  --raak-radius-card: 12px;
+  --raak-radius-control: 10px;
+  --raak-shadow-subtle: 0 1px 2px rgba(32, 42, 64, 0.06), 0 1px 3px rgba(32, 42, 64, 0.08);
+}
+
+/* Arabic body copy gets comfortable line-height (docs 10: 1.65–1.85). */
+:root[lang='ar'] body {
+  line-height: 1.75;
+}

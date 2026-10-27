@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Map locked brand tokens into Tailwind utilities (bg-brand, text-ink, …). */
+@theme inline {
+  --color-brand: var(--raak-brand-primary);
+  --color-brand-hover: var(--raak-brand-primary-hover);
+  --color-brand-subtle: var(--raak-brand-primary-subtle);
+  --color-accent: var(--raak-brand-accent);
+  --color-accent-subtle: var(--raak-brand-accent-subtle);
+  --color-canvas: var(--raak-app-background);
+  --color-surface: var(--raak-surface-default);
+  --color-line: var(--raak-border-default);
+  --color-ink: var(--raak-text-primary);
+  --color-ink-muted: var(--raak-text-secondary);
+  --radius-card: var(--raak-radius-card);
+}
+
+html {
+  background-color: var(--raak-app-background);
+}
+
+body {
+  color: var(--raak-text-primary);
+  font-family: var(--raak-font-latin);
+}
+
+html[lang='ar'] body {
+  font-family: var(--raak-font-arabic);
+}
+
+html[lang='en'] body {
+  font-family: var(--raak-font-latin);
+}
