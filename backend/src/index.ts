@@ -20,6 +20,7 @@ const app = buildApp({
   logger,
   health: createHealthService({ prisma }),
   now: () => new Date(),
+  ...(prisma ? { db: prisma } : {}),
 });
 
 const server = app.listen(env.API_PORT, () => {
