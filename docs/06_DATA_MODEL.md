@@ -48,6 +48,13 @@ Note: guest requests use `customerAccountId=NULL`, requester email persisted sec
 | `staff_invitations` | `id,tenantId,emailNormalized,role,tokenHash,expiresAt,consumedAt,createdBy` | hashed opaque token, single-use |
 | `auth_sessions` | `id,principalType,principalId,tenantId?,secretHash,expiresAt,revokedAt,sessionVersion` | no raw token; index secretHash; platform sessions tenant NULL |
 | `guest_action_tokens` | `id,tenantId,requestId,emailHash,tokenHash,purpose,expiresAt,consumedAt` | short TTL, only relevant scoped action |
+| `email_tokens` | `id,tenantId?,purpose,principalType,principalId,tokenHash,expiresAt,consumedAt` | Sprint 1 owner verification/password reset; hashed opaque, single-use |
+| `audit_events` | `id,tenantId?,actorType?,actorId?,action,subjectType,subjectId?,reason?,metadataJson,at` | append-only; nullable tenant for platform-scope action; minimal metadata |
+
+Sprint 1 migration `20261027181752_sprint1_identity` implements the tenancy,
+identity, invitation, session, email-token, caregiver-link and audit tables.
+`principalId` on polymorphic session/token rows is enforced by service logic;
+tenant/account status and `sessionVersion` are rechecked on every private call.
 
 ## Catalog and requests
 | Table | Essential fields | Constraints / notes |

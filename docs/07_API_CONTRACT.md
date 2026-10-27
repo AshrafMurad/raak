@@ -14,7 +14,7 @@
 - Use `If-Match` version or explicit `expectedVersion` for high-contention mutable entities.
 
 ## Platform control plane (PlatformOperator only)
-<!-- Sprint 0 infrastructure endpoints are documented below; domain routes remain planned. -->
+<!-- Sprint 1 implements all control-plane routes in this table. -->
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/platform/tenants` | Scoped tenant list and aggregate counts only |
@@ -32,11 +32,21 @@
 | GET | `/auth/me` | Audience, role, tenant, safe permissions |
 | POST | `/auth/verify-email` | Consume verification token |
 | POST | `/auth/forgot-password` | Generic acknowledgement, email-based recovery |
+| POST | `/auth/reset-password` | Consume one-time reset token, rotate credential and revoke sessions |
 | POST | `/staff/invitations` | Agency Owner/Admin creates invite and optional caregiver profile |
 | POST | `/staff/invitations/accept` | Token consumption + account setup |
 | GET/PATCH | `/agency/settings` | Agency identity, timezone, travel buffer, policy; versioned |
 | GET/PATCH | `/agency/branding` | Brand assets and public portal copy |
 | GET/PATCH | `/agency/notification-policies` | Optional event preferences only |
+
+Sprint 1 implements registration; login/logout/me; owner email verification;
+forgot/reset password; staff invitation issue/accept; and all `/platform/*`
+control-plane routes. Agency settings, branding and notification policies remain
+owned by later sprints. Cookie-authenticated mutations require `X-CSRF-Token`;
+public one-time-token consumption routes are rate limited and do not require an
+existing session. `TOKEN_EXPIRED` returns 401, `TOKEN_ALREADY_USED` returns 409,
+and unknown capability tokens return generic `UNAUTHENTICATED` without account
+enumeration.
 
 ## Agency service catalog and portal
 | Method | Path | Purpose |
@@ -168,10 +178,11 @@ Total is **calculated server-side** from trusted validated line items; no client
 ## Contract change discipline
 Use shared Zod schemas and generated TypeScript types consumed by UI/API/worker. Changes to enums, status meaning or domain DTOs require changes in schema, API tests, UI labels and documentation together. Maintain OpenAPI spec in code after initial implementation.
 
-## Sprint 0 infrastructure endpoints (implemented)
+## Implemented infrastructure endpoints
 
 These endpoints contain no tenant or patient data and perform no domain actions.
-The domain endpoints above are specifications for future sprints.
+Domain endpoints not explicitly marked implemented above remain future-sprint
+specifications.
 
 | Process | Method / path | Dependency | HTTP status |
 |---|---|---|---|

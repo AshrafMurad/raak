@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import ar from '../messages/ar/common.json';
 import en from '../messages/en/common.json';
+import arAuth from '../messages/ar/auth.json';
+import enAuth from '../messages/en/auth.json';
+import arPlatform from '../messages/ar/platform.json';
+import enPlatform from '../messages/en/platform.json';
 import {
   DEFAULT_LOCALE,
   LOCALE_DIRECTION,
@@ -21,13 +25,17 @@ function keyPaths(value: unknown, prefix = ''): string[] {
 
 describe('dictionaries', () => {
   it('ar and en expose exactly the same keys (no fallback holes)', () => {
-    const arabic = keyPaths(ar).sort();
-    const english = keyPaths(en).sort();
-    expect(english).toEqual(arabic);
+    for (const [arabic, english] of [
+      [ar, en],
+      [arAuth, enAuth],
+      [arPlatform, enPlatform],
+    ]) {
+      expect(keyPaths(english).sort()).toEqual(keyPaths(arabic).sort());
+    }
   });
 
   it('every leaf value is a non-empty string', () => {
-    for (const dictionary of [ar, en]) {
+    for (const dictionary of [ar, en, arAuth, enAuth, arPlatform, enPlatform]) {
       for (const path of keyPaths(dictionary)) {
         const parts = path.split('.');
         let node: unknown = dictionary;

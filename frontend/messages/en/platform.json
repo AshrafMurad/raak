@@ -1,0 +1,40 @@
+{
+  "eyebrow": "Platform control plane",
+  "title": "Agency tenants",
+  "intro": "Review agency metadata and account totals. Platform access does not include patient or care records.",
+  "refresh": "Refresh",
+  "loading": "Loading agency tenants…",
+  "empty": "No agency tenants match this view.",
+  "loginRequired": "Platform authentication is required.",
+  "error": "The tenant list could not be loaded.",
+  "table": {
+    "agency": "Agency",
+    "workspace": "Workspace",
+    "status": "Status",
+    "accounts": "Accounts",
+    "actions": "Actions"
+  },
+  "counts": {
+    "owners": "owners",
+    "staff": "staff",
+    "customers": "customers"
+  },
+  "status": {
+    "PENDING_APPROVAL": "Pending approval",
+    "ACTIVE": "Active",
+    "SUSPENDED": "Suspended"
+  },
+  "actions": {
+    "activate": "Activate",
+    "suspend": "Suspend",
+    "cancel": "Cancel",
+    "confirmActivate": "Activate this agency?",
+    "confirmSuspend": "Suspend this agency?",
+    "reason": "Reason",
+    "reasonHint": "Required for suspension; 3 to 500 characters.",
+    "submitActivate": "Confirm activation",
+    "submitSuspend": "Confirm suspension",
+    "success": "Tenant status updated.",
+    "failure": "The status could not be updated."
+  }
+}
