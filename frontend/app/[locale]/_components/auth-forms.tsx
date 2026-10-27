@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { apiRequest } from '../../../lib/api-client';
+import { capabilityTokenFromLocation, locationWithoutCapabilityToken } from '../../../lib/capability-token';
 import {
   isValidEmail,
   isValidPassword,
@@ -30,6 +31,23 @@ function Notice({ kind, children }: { kind: 'error' | 'success'; children: strin
       {children}
     </p>
   );
+}
+
+function useCapabilityToken(): string | undefined {
+  const [token, setToken] = useState<string>();
+  useEffect(() => {
+    const location = new URL(window.location.href);
+    setToken(capabilityTokenFromLocation(location));
+    if (location.searchParams.has('token')) {
+      window.history.replaceState(null, '', locationWithoutCapabilityToken(location));
+    }
+  }, []);
+  return token;
+}
+
+function clearCapabilityLocation(): void {
+  const location = new URL(window.location.href);
+  window.history.replaceState(null, '', locationWithoutCapabilityToken(location));
 }
 
 export function RegistrationForm({ copy }: { copy: AuthCopy }) {
@@ -86,7 +104,7 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-5 rounded-card border border-line bg-surface p-6 shadow-[var(--raak-shadow-subtle)] sm:grid-cols-2 sm:p-8">
+    <form onSubmit={submit} className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-6 shadow-[var(--raak-shadow-subtle)] sm:grid-cols-2 sm:p-8">
       <label className="text-sm font-medium text-ink sm:col-span-2">
         {copy.register.legalName}
         <input name="legalName" required maxLength={200} className={inputClass} />
@@ -169,7 +187,7 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
+    <form onSubmit={submit} className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
       <label className="text-sm font-medium text-ink">
         {copy.login.email}
         <input name="email" type="email" required dir="ltr" autoComplete="email" className={inputClass} />
@@ -190,16 +208,18 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
   );
 }
 
-export function VerifyEmailForm({ token, copy }: { token?: string; copy: AuthCopy }) {
-  const [message, setMessage] = useState(token ? '' : copy.verify.missing);
+export function VerifyEmailForm({ copy }: { copy: AuthCopy }) {
+  const capabilityToken = useCapabilityToken();
+  const [message, setMessage] = useState('');
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
   function verify() {
-    if (!token) return;
+    if (!capabilityToken) return;
     setMessage('');
     startTransition(async () => {
       try {
-        await apiRequest('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }, 'platform');
+        await apiRequest('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token: capabilityToken }) }, 'platform');
+        clearCapabilityLocation();
         setSuccess(true);
         setMessage(copy.verify.success);
       } catch {
@@ -209,27 +229,29 @@ export function VerifyEmailForm({ token, copy }: { token?: string; copy: AuthCop
   }
   return (
     <section className="rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
-      {message ? <Notice kind={success ? 'success' : 'error'}>{message}</Notice> : null}
-      <button type="button" onClick={verify} disabled={!token || pending || success} className={`${buttonClass} mt-5`}>
+      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.verify.missing}</Notice> : null}
+      <button type="button" onClick={verify} disabled={!capabilityToken || pending || success} className={`${buttonClass} mt-5`}>
         {pending ? copy.common.working : copy.verify.submit}
       </button>
     </section>
   );
 }
 
-export function ResetPasswordForm({ token, copy }: { token?: string; copy: AuthCopy }) {
-  const [message, setMessage] = useState(token ? '' : copy.reset.missing);
+export function ResetPasswordForm({ copy }: { copy: AuthCopy }) {
+  const capabilityToken = useCapabilityToken();
+  const [message, setMessage] = useState('');
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token) return;
+    if (!capabilityToken) return;
     const password = String(new FormData(event.currentTarget).get('password') ?? '');
     if (!isValidPassword(password)) return setMessage(copy.validation.password);
     setMessage('');
     startTransition(async () => {
       try {
-        await apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword: password }) }, 'platform');
+        await apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: capabilityToken, newPassword: password }) }, 'platform');
+        clearCapabilityLocation();
         setSuccess(true);
         setMessage(copy.reset.success);
       } catch {
@@ -243,9 +265,48 @@ export function ResetPasswordForm({ token, copy }: { token?: string; copy: AuthC
         {copy.reset.password}
         <input name="password" type="password" required minLength={10} maxLength={128} autoComplete="new-password" className={inputClass} />
       </label>
-      {message ? <Notice kind={success ? 'success' : 'error'}>{message}</Notice> : null}
-      <button type="submit" disabled={!token || pending || success} className={buttonClass}>
+      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.reset.missing}</Notice> : null}
+      <button type="submit" disabled={!capabilityToken || pending || success} className={buttonClass}>
         {pending ? copy.common.working : copy.reset.submit}
+      </button>
+    </form>
+  );
+}
+
+export function AcceptInvitationForm({ copy }: { copy: AuthCopy }) {
+  const capabilityToken = useCapabilityToken();
+  const [message, setMessage] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!capabilityToken) return;
+    const password = String(new FormData(event.currentTarget).get('password') ?? '');
+    if (!isValidPassword(password)) return setMessage(copy.validation.password);
+    setMessage('');
+    startTransition(async () => {
+      try {
+        await apiRequest('/staff/invitations/accept', {
+          method: 'POST',
+          body: JSON.stringify({ token: capabilityToken, password }),
+        });
+        clearCapabilityLocation();
+        setSuccess(true);
+        setMessage(copy.invitation.success);
+      } catch {
+        setMessage(copy.validation.request);
+      }
+    });
+  }
+  return (
+    <form onSubmit={submit} className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
+      <label className="text-sm font-medium text-ink">
+        {copy.invitation.password}
+        <input name="password" type="password" required minLength={10} maxLength={128} autoComplete="new-password" className={inputClass} />
+      </label>
+      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.invitation.missing}</Notice> : null}
+      <button type="submit" disabled={!capabilityToken || pending || success} className={buttonClass}>
+        {pending ? copy.common.working : copy.invitation.submit}
       </button>
     </form>
   );

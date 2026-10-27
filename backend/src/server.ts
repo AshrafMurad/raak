@@ -144,10 +144,10 @@ function makeLinkBuilder(env: AppEnv) {
   ): string => {
     if (kind === 'staff_invitation') {
       const slug = context?.slug ?? 'unknown';
-      return `${scheme}://${slug}.${base}/ar/accept-invitation?token=${token}`;
+      return `${scheme}://${slug}.${base}/ar/accept-invitation#token=${token}`;
     }
     const page = kind === 'owner_verification' ? 'verify-email' : 'reset-password';
-    return `${scheme}://${platformHost}/ar/${page}?token=${token}`;
+    return `${scheme}://${platformHost}/ar/${page}#token=${token}`;
   };
 }
 
