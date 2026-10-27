@@ -11,6 +11,7 @@ import { createHostResolver } from './modules/auth/host-resolver';
 import { requireHostRealm } from './modules/auth/guards';
 import { createAuthRouter, type RateLimits } from './modules/auth/auth.controller';
 import { createAgencyRouter } from './modules/agency/agency.controller';
+import { createStaffRouter } from './modules/staff/staff.controller';
 
 export interface AppDeps {
   env: AppEnv;
@@ -135,7 +136,15 @@ function makeLinkBuilder(env: AppEnv) {
   const base = env.BASE_DOMAIN ?? 'localhost.invalid';
   const platformHost = env.platformHost ?? `platform.${base}`;
   const scheme = env.NODE_ENV === 'production' ? 'https' : 'http';
-  return (kind: 'owner_verification' | 'password_reset', token: string): string => {
+  return (
+    kind: 'owner_verification' | 'password_reset' | 'staff_invitation',
+    token: string,
+    context?: { slug: string },
+  ): string => {
+    if (kind === 'staff_invitation') {
+      const slug = context?.slug ?? 'unknown';
+      return `${scheme}://${slug}.${base}/ar/accept-invitation?token=${token}`;
+    }
     const page = kind === 'owner_verification' ? 'verify-email' : 'reset-password';
     return `${scheme}://${platformHost}/ar/${page}?token=${token}`;
   };
@@ -178,6 +187,15 @@ export function buildApp(deps: AppDeps): Express {
           db: deps.db,
           now: deps.now,
           buildLink: (kind, token) => buildLink(kind, token),
+          rateLimits: deps.rateLimits,
+        }),
+      );
+      app.use(
+        '/v1',
+        createStaffRouter({
+          db: deps.db,
+          now: deps.now,
+          buildLink: (kind, token, context) => buildLink(kind, token, context),
           rateLimits: deps.rateLimits,
         }),
       );
