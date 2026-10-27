@@ -1,0 +1,17 @@
+# dependencies / builds
+node_modules/
+.next/
+out/
+coverage/
+
+# env — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# misc
+*.log
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+Thumbs.db
