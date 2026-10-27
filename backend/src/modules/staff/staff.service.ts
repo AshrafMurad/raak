@@ -28,6 +28,9 @@ export function createStaffService(deps: StaffServiceDeps) {
       if (auth.realm.kind !== 'AGENCY' || !auth.staff) {
         throw new ApiError(403, 'FORBIDDEN', 'You are not allowed to perform this action.');
       }
+      const tenantId = auth.realm.tenant.tenantId;
+      const slug = auth.realm.tenant.slug;
+      const creatorId = auth.staff.id;
       const email = input.email.trim().toLowerCase();
       const token = generateToken();
       const issuedAt = deps.now();
@@ -36,7 +39,7 @@ export function createStaffService(deps: StaffServiceDeps) {
       const invitation = await db.$transaction(async (tx) => {
         const created = await tx.staffInvitation.create({
           data: {
-            tenantId: auth.realm.tenant.tenantId,
+            tenantId,
             emailNormalized: email,
             role: input.role,
             ...(input.caregiverProfile !== undefined
@@ -44,24 +47,24 @@ export function createStaffService(deps: StaffServiceDeps) {
               : {}),
             tokenHash: token.tokenHash,
             expiresAt,
-            createdByStaffId: auth.staff!.id,
+            createdByStaffId: creatorId,
             createdAt: issuedAt,
           },
         });
         await enqueueOutbox(tx, {
-          tenantId: auth.realm.tenant.tenantId,
+          tenantId,
           eventType: 'email.staff_invitation',
           aggregateId: created.id,
           payloadMinimal: {
             to: email,
             action: 'staff_invitation',
-            link: deps.buildLink('staff_invitation', token.token, { slug: auth.realm.tenant.slug }),
+            link: deps.buildLink('staff_invitation', token.token, { slug }),
           },
         });
         await appendAudit(tx, {
-          tenantId: auth.realm.tenant.tenantId,
+          tenantId,
           actorType: 'AGENCY_STAFF',
-          actorId: auth.staff!.id,
+          actorId: creatorId,
           action: 'staff.invited',
           subjectType: 'staff_invitation',
           subjectId: created.id,

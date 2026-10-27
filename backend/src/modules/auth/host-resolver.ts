@@ -15,6 +15,9 @@ export type HostRealm =
   | { kind: 'AGENCY'; tenant: ResolvedTenantContext }
   | { kind: 'REJECTED' };
 
+/** A host realm that passed the gate (distributes for narrowing). */
+export type AcceptedRealm = Extract<HostRealm, { kind: 'PLATFORM' | 'AGENCY' }>;
+
 export interface HostResolverConfig {
   /** e.g. `raak.example.com` in production, `localhost` in development. */
   baseDomain: string;

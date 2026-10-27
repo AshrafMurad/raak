@@ -9,7 +9,7 @@ import type { DatabaseClient } from '../../db/client';
 import type { ServerSessionContext } from '../../contracts';
 import { errorEnvelope } from '../../contracts';
 import { hashToken, safeEqual } from './crypto';
-import type { HostRealm, HostRealmResolver } from './host-resolver';
+import type { HostRealm, HostRealmResolver, AcceptedRealm } from './host-resolver';
 import type { ResolvedStaff, ResolvedCustomer, ResolvedOperator } from './session.service';
 import { resolveSession } from './session.service';
 import { sessionCookieName, csrfCookieName } from './cookies';
@@ -18,7 +18,7 @@ import { authorize, type PermissionAction } from './permissions';
 export interface AuthState {
   sessionId: string;
   session: ServerSessionContext;
-  realm: HostRealm & { kind: 'PLATFORM' | 'AGENCY' };
+  realm: AcceptedRealm;
   csrfTokenHash: string;
   staff?: ResolvedStaff;
   customer?: ResolvedCustomer;
@@ -44,7 +44,7 @@ function parseCookies(header: string | undefined): Record<string, string> {
   return out;
 }
 
-function realmFrom(res: Response): HostRealm & { kind: 'PLATFORM' | 'AGENCY' } | undefined {
+function realmFrom(res: Response): AcceptedRealm | undefined {
   const realm = res.locals.realm as HostRealm | undefined;
   if (realm && (realm.kind === 'PLATFORM' || realm.kind === 'AGENCY')) return realm;
   return undefined;

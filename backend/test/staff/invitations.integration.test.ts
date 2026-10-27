@@ -79,7 +79,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     caregiverCookies = await loginAs(ids.caregiver!);
   });
 
-  function postInvite(cookies: { session: string; csrf: string }, body: unknown) {
+  function postInvite(cookies: { session: string; csrf: string }, body: Record<string, unknown>) {
     return request(app)
       .post('/v1/staff/invitations')
       .set('Host', `${slugA}.localhost`)

@@ -10,7 +10,7 @@ import type { DatabaseClient } from '../../db/client';
 import { createAuthService } from './auth.service';
 import { clearSessionCookies, setSessionCookies, type AuthRealm } from './cookies';
 import { requireCsrf, requireSession, type AuthState } from './guards';
-import type { HostRealm } from './host-resolver';
+import type { AcceptedRealm, HostRealm } from './host-resolver';
 import { createRateLimiter } from './rate-limit';
 import { asyncHandler, parseBody } from '../common/http';
 
@@ -41,7 +41,7 @@ export interface AuthControllerDeps {
   rateLimiter?: ReturnType<typeof createRateLimiter>;
 }
 
-function realmOf(res: Response): HostRealm & { kind: 'PLATFORM' | 'AGENCY' } {
+function realmOf(res: Response): AcceptedRealm {
   const realm = res.locals.realm as HostRealm | undefined;
   if (!realm || realm.kind === 'REJECTED') throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
   return realm;

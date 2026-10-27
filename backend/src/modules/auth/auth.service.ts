@@ -15,7 +15,7 @@ import {
   revokeSession,
   type CreatedSession,
 } from './session.service';
-import type { HostRealm } from './host-resolver';
+import type { AcceptedRealm } from './host-resolver';
 import type { AuthState } from './guards';
 import type { AuthMeDto } from '../../contracts';
 
@@ -78,7 +78,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       });
     },
 
-    async login(realm: HostRealm & { kind: 'PLATFORM' | 'AGENCY' }, emailRaw: string, password: string): Promise<{ created: CreatedSession; me: AuthMeDto }> {
+    async login(realm: AcceptedRealm, emailRaw: string, password: string): Promise<{ created: CreatedSession; me: AuthMeDto }> {
       const email = emailRaw.trim().toLowerCase();
       let me: AuthMeDto;
       let principal: AnyAccount;
@@ -173,7 +173,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       });
     },
 
-    async requestPasswordReset(realm: HostRealm & { kind: 'PLATFORM' | 'AGENCY' }, emailRaw: string): Promise<void> {
+    async requestPasswordReset(realm: AcceptedRealm, emailRaw: string): Promise<void> {
       const email = emailRaw.trim().toLowerCase();
       let accountId: string | null = null;
       let principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER' | null = null;
