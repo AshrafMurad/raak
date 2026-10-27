@@ -46,7 +46,9 @@ async function main() {
   });
 
   const count = await prisma.tenant.count();
-  process.stdout.write(`${JSON.stringify({ msg: 'seed complete (synthetic only)', tenants: count })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ msg: 'seed complete (synthetic only)', tenants: count })}\n`,
+  );
 }
 
 main()
