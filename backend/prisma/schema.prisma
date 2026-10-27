@@ -1,6 +1,7 @@
-// Raak — Sprint 0 schema scope: tenancy root + outbox stub only.
-// Domain tables (identity, catalog, requests, quotes, patients, plans, visits,
-// notifications, audit) are added by their owning sprints per docs/13_IMPLEMENTATION_PLAN.md.
+// Raak — Sprint 1 schema scope: tenancy root, outbox stub and the identity /
+// control-plane tables (docs 05, docs 06 "Identity and tenancy tables").
+// Remaining domain tables (catalog, requests, quotes, patients, plans, visits,
+// notifications) are added by their owning sprints per docs/13_IMPLEMENTATION_PLAN.md.
 
 generator client {
   provider = "prisma-client"
@@ -25,6 +26,11 @@ model Tenant {
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
+  staffAccounts      StaffAccount[]
+  customerAccounts   CustomerAccount[]
+  staffInvitations   StaffInvitation[]
+  caregivers         Caregiver[]
+
   @@index([status])
   @@map("tenants")
 }
@@ -35,6 +41,193 @@ enum TenantStatus {
   SUSPENDED
 
   @@map("tenant_status")
+}
+
+/// docs 05 — principal audiences.
+enum PrincipalType {
+  PLATFORM_OPERATOR
+  AGENCY_STAFF
+  AGENCY_CUSTOMER
+
+  @@map("principal_type")
+}
+
+/// docs 05 — staff roles (AGENCY_OWNER exists only via agency registration;
+/// invitations may only carry the other three).
+enum StaffRole {
+  AGENCY_OWNER
+  AGENCY_ADMIN
+  CARE_COORDINATOR
+  CAREGIVER
+
+  @@map("staff_role")
+}
+
+/// Shared account lifecycle for platform operators, staff and customers.
+/// Platform operators and invitation-accepted staff start ACTIVE;
+/// self-registered owners/customers start PENDING_VERIFICATION.
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+
+  @@map("account_status")
+}
+
+/// One-time capability emails (owner verification, password reset).
+enum EmailTokenPurpose {
+  OWNER_VERIFICATION
+  PASSWORD_RESET
+
+  @@map("email_token_purpose")
+}
+
+/// docs 06 — platform_operators. Separate identity realm; no tenant credentials.
+model PlatformOperator {
+  id              String        @id @default(uuid()) @db.Uuid
+  emailNormalized String        @unique @map("email_normalized")
+  passwordHash    String        @map("password_hash")
+  status          AccountStatus @default(ACTIVE)
+  sessionVersion  Int           @default(0) @map("session_version")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@map("platform_operators")
+}
+
+/// docs 06 — staff_accounts. Invitation-based; unique per tenant.
+model StaffAccount {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantId        String        @map("tenant_id") @db.Uuid
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  emailNormalized String        @map("email_normalized")
+  passwordHash    String        @map("password_hash")
+  role            StaffRole
+  status          AccountStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?     @map("email_verified_at")
+  sessionVersion  Int           @default(0) @map("session_version")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  invitationsCreated StaffInvitation[] @relation("InvitationCreator")
+  caregiver          Caregiver?
+
+  @@unique([tenantId, emailNormalized])
+  @@index([tenantId])
+  @@map("staff_accounts")
+}
+
+/// docs 06 — customer_accounts. Same-email accounts in different tenants are
+/// independent; tenant is resolved (host) before authentication.
+model CustomerAccount {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantId        String        @map("tenant_id") @db.Uuid
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  emailNormalized String        @map("email_normalized")
+  passwordHash    String        @map("password_hash")
+  status          AccountStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?     @map("email_verified_at")
+  sessionVersion  Int           @default(0) @map("session_version")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@unique([tenantId, emailNormalized])
+  @@index([tenantId])
+  @@map("customer_accounts")
+}
+
+/// docs 06 — staff_invitations. Hashed opaque token, single-use, 48h expiry.
+model StaffInvitation {
+  id                   String     @id @default(uuid()) @db.Uuid
+  tenantId             String     @map("tenant_id") @db.Uuid
+  tenant               Tenant     @relation(fields: [tenantId], references: [id])
+  emailNormalized      String     @map("email_normalized")
+  role                 StaffRole
+  caregiverProfileJson Json?      @map("caregiver_profile_json")
+  tokenHash            String     @unique @map("token_hash")
+  expiresAt            DateTime   @map("expires_at")
+  consumedAt           DateTime?  @map("consumed_at")
+  createdByStaffId     String     @map("created_by_staff_id") @db.Uuid
+  createdBy            StaffAccount @relation("InvitationCreator", fields: [createdByStaffId], references: [id])
+  createdAt            DateTime   @default(now()) @map("created_at")
+
+  @@index([tenantId, emailNormalized])
+  @@map("staff_invitations")
+}
+
+/// docs 06 — auth_sessions. No raw token at rest; only sha-256 hashes.
+/// principalId/tenantId are polymorphic scalars (no FK) by design.
+model AuthSession {
+  id             String        @id @default(uuid()) @db.Uuid
+  principalType  PrincipalType @map("principal_type")
+  principalId    String        @map("principal_id") @db.Uuid
+  tenantId       String?       @map("tenant_id") @db.Uuid
+  secretHash     String        @unique @map("secret_hash")
+  csrfTokenHash  String        @map("csrf_token_hash")
+  sessionVersion Int           @map("session_version")
+  expiresAt      DateTime      @map("expires_at")
+  revokedAt      DateTime?     @map("revoked_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([principalId])
+  @@index([tenantId])
+  @@map("auth_sessions")
+}
+
+/// One-time email capability tokens, stored hashed only (docs 05).
+model EmailToken {
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String?           @map("tenant_id") @db.Uuid
+  purpose       EmailTokenPurpose
+  principalType PrincipalType     @map("principal_type")
+  principalId   String            @map("principal_id") @db.Uuid
+  tokenHash     String            @unique @map("token_hash")
+  expiresAt     DateTime          @map("expires_at")
+  consumedAt    DateTime?         @map("consumed_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  @@index([principalId, purpose])
+  @@map("email_tokens")
+}
+
+/// Append-only audit trail for tenant status changes, operator actions and
+/// auth events (docs 06 AUDIT_EVENT + docs 07 /platform/audit).
+/// tenantId nullable for platform-scope rows; never hard-deleted.
+model AuditEvent {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String?        @map("tenant_id") @db.Uuid
+  actorType     PrincipalType? @map("actor_type")
+  actorId       String?        @map("actor_id") @db.Uuid
+  action        String
+  subjectType   String         @map("subject_type")
+  subjectId     String?        @map("subject_id") @db.Uuid
+  reason        String?
+  metadataJson  Json           @map("metadata_json")
+  at            DateTime       @default(now())
+
+  @@index([tenantId, at])
+  @@index([action, at])
+  @@map("audit_events")
+}
+
+/// docs 06 — caregivers (minimal Sprint 1 columns; qualification workflow and
+/// availability arrive in Sprint 4-5). operationalStatus INACTIVE until then.
+model Caregiver {
+  id                            String  @id @default(uuid()) @db.Uuid
+  tenantId                      String  @map("tenant_id") @db.Uuid
+  tenant                        Tenant  @relation(fields: [tenantId], references: [id])
+  staffAccountId                String? @unique @map("staff_account_id") @db.Uuid
+  staffAccount                  StaffAccount? @relation(fields: [staffAccountId], references: [id])
+  name                          String
+  professionalCategory          String  @map("professional_category")
+  operationalStatus             String  @default("INACTIVE") @map("operational_status")
+  serviceAreasJson              Json    @default("[]") @map("service_areas_json")
+  qualificationVerificationStatus String @default("UNVERIFIED") @map("qualification_verification_status")
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("caregivers")
 }
 
 /// docs 08 — outbox stub: state changes and their events commit in one DB
