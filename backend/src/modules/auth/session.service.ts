@@ -5,6 +5,7 @@
  * is never trusted for current authorization (I15).
  */
 import type { DatabaseClient } from '../../db/client';
+import type { Prisma } from '../../db/generated/prisma/client';
 import type { ServerSessionContext } from '../../contracts';
 import { generateToken, hashToken } from './crypto';
 
@@ -185,7 +186,7 @@ export async function revokeSession(db: DatabaseClient, sessionId: string, now: 
 
 /** Used by platform tenant suspension (I15): every live session of the tenant dies now. */
 export async function revokeAllSessionsForTenant(
-  db: DatabaseClient,
+  db: DatabaseClient | Prisma.TransactionClient,
   tenantId: string,
   now: () => Date = () => new Date(),
 ): Promise<number> {

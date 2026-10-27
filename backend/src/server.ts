@@ -12,6 +12,7 @@ import { requireHostRealm } from './modules/auth/guards';
 import { createAuthRouter, type RateLimits } from './modules/auth/auth.controller';
 import { createAgencyRouter } from './modules/agency/agency.controller';
 import { createStaffRouter } from './modules/staff/staff.controller';
+import { createPlatformRouter } from './modules/platform/platform.controller';
 
 export interface AppDeps {
   env: AppEnv;
@@ -199,6 +200,7 @@ export function buildApp(deps: AppDeps): Express {
           rateLimits: deps.rateLimits,
         }),
       );
+      app.use('/v1', createPlatformRouter({ db: deps.db, now: deps.now }));
     } else {
       // Fail closed when tenant routing is unconfigured.
       app.use('/v1', realmReject);
