@@ -15,7 +15,6 @@ backend/src/db/generated/
 *.pid
 
 # Editors and operating systems
-.agents/
 .idea/
 .vscode/
 .DS_Store

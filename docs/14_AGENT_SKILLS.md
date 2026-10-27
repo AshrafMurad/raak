@@ -4,13 +4,13 @@
 
 This guide configures how coding agents use the four requested skill collections in Raak. It supplements the product specification; it does not change business behavior, API contracts, or sprint scope.
 
-Skills are project-local editable copies under `.agents/skills/<name>/`. The
-`.agents/` installation is intentionally gitignored rather than vendored;
-`skills-lock.json` records upstream sources, paths, and content hashes, and the
-installation commands below reproduce it. OpenCode discovers this directory
-through `opencode.json`. Only `AGENTS.md` is loaded as ambient project
-instructions; it contains compact automatic routing. Consult this longer
-reference only for additional routing, conflicts, installation or maintenance.
+Skills are project-local vendored copies under `.agents/skills/<name>/`.
+`skills-lock.json` records their upstream sources, paths, and content hashes;
+`.agents/THIRD_PARTY_NOTICES.md` records source licenses and attribution.
+OpenCode discovers this directory through `opencode.json`. Only `AGENTS.md` is
+loaded as ambient project instructions; it contains compact automatic routing.
+Consult this longer reference only for additional routing, conflicts,
+installation or maintenance.
 
 | Collection | Installed skills | Role in Raak |
 |---|---:|---|
