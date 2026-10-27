@@ -92,8 +92,8 @@ describe.skipIf(!hasDatabase)('session service', () => {
       now,
     });
     const resolved = await resolveSession(db, sessionToken, now);
-    expect(resolved?.session.principalType).toBe('PLATFORM_OPERATOR');
-    expect(resolved?.session.tenantId).toBeUndefined();
+    expect(resolved?.session).toMatchObject({ principalType: 'PLATFORM_OPERATOR' });
+    expect(resolved?.session).not.toHaveProperty('tenantId');
   });
 
   it('returns null for an unknown token', async () => {
