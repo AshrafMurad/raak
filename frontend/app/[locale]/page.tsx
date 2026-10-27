@@ -13,19 +13,23 @@ export default async function HomePage({ params }: LocalePageProps) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-10 px-6 py-10">
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         {/* Text wordmark only — logo not selected (docs 10). */}
         <p className="text-[var(--raak-text-card-title-size)] font-[var(--raak-font-weight-bold)] text-brand">
           {dict.brand.name} <span className="text-ink-muted">| {dict.brand['latin']}</span>
         </p>
-        <Link
-          href={`/${switchTarget}`}
-          lang={switchTarget}
-          aria-label={dict.switch.label}
-          className="rounded-[var(--raak-radius-control)] border border-line bg-surface px-4 py-2 text-[var(--raak-text-button-size)] font-[var(--raak-font-weight-medium)] text-brand hover:bg-brand-subtle"
-        >
-          {dict.switch.to}
-        </Link>
+        <nav className="flex flex-wrap items-center gap-2" aria-label="Primary">
+          <Link href={`/${locale}/register`} className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle">{dict.auth.nav.register}</Link>
+          <Link href={`/${locale}/login`} className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle">{dict.auth.nav.login}</Link>
+          <Link
+            href={`/${switchTarget}`}
+            lang={switchTarget}
+            aria-label={dict.switch.label}
+            className="rounded-[var(--raak-radius-control)] border border-line bg-surface px-4 py-2 text-[var(--raak-text-button-size)] font-[var(--raak-font-weight-medium)] text-brand hover:bg-brand-subtle"
+          >
+            {dict.switch.to}
+          </Link>
+        </nav>
       </header>
 
       <main className="flex flex-1 flex-col items-start gap-6 rounded-[var(--raak-radius-card)] border border-line bg-surface p-8 shadow-[var(--raak-shadow-subtle)]">

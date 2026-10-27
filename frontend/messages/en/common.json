@@ -7,9 +7,9 @@
     "name": "رعاك",
     "latin": "Raak"
   },
-  "badge": "Sprint 0 skeleton (placeholder content)",
+  "badge": "Sprint 1 — secure onboarding and tenant control",
   "title": "Home care coordination platform",
-  "body": "This is a Sprint 0 structural placeholder. Real screens (agency portal, service requests, quotes, scheduling) arrive incrementally per the specification pack's implementation plan.",
+  "body": "Agency registration, identity verification, tenant-scoped sign-in, staff invitations, and the platform tenant list are now implemented. Catalog and guest intake arrive in Sprint 2.",
   "switch": {
     "label": "Switch to Arabic",
     "to": "العربية"
