@@ -23,6 +23,7 @@ html {
 body {
   color: var(--raak-text-primary);
   font-family: var(--raak-font-latin);
+  overflow-wrap: anywhere;
 }
 
 html[lang='ar'] body {

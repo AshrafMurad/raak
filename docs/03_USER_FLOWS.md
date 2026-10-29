@@ -1,11 +1,11 @@
 # 03 — User Flows and Page-to-Action Journeys
 
 ## Surface and route map (logical, illustrative)
-- Public SaaS: `www.<RAAK_BASE_DOMAIN>/` and `/register-agency`.
-- Platform admin: `admin.<RAAK_BASE_DOMAIN>/tenants` (separate staff auth audience).
+- Public SaaS: `platform.<RAAK_BASE_DOMAIN>/` and `/register-agency`.
+- Platform admin: `platform.<RAAK_BASE_DOMAIN>/platform/tenants` (separate auth audience).
 - Agency website/customer portal: `<tenantSlug>.<RAAK_BASE_DOMAIN>/` and `/services/:slug`, `/request`, `/track`, `/account/*`.
-- Agency admin/caregiver workspace: `app.<RAAK_BASE_DOMAIN>/w/:tenantSlug/*` — route tenant slug must match authorized tenant identity. Can consolidate to subdomain later; API tenancy rules remain unchanged.
-- API: `api.<RAAK_BASE_DOMAIN>/v1/*`; browser sends origin and server resolves tenant via trusted host / verified workspace route. Do not trust user-supplied `tenantId`.
+- Agency admin/caregiver workspace: `<tenantSlug>.<RAAK_BASE_DOMAIN>/workspace/*`; the authenticated session must be bound to that exact host-resolved tenant.
+- API: `/v1/*` is same-origin on the platform or tenant hostname and routed to Express by the trusted edge (ADR-0008). Do not trust user-supplied `tenantId`, slug, `Host`, or forwarding headers.
 
 ## F01 — New agency onboarding
 1. Owner fills agency name, owner email, intended slug, agency timezone, currency; verifies email.

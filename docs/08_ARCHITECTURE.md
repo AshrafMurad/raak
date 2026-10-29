@@ -43,10 +43,11 @@ Use a **modular monolith** API initially: one deployable Express server with int
 - Versions remain to be pinned and validated at Sprint 0; do not treat these as claims about current latest packages.
 
 ## Tenant routing
-1. Portal request lands at `<slug>.<baseDomain>`; reverse proxy passes trusted host to app; app resolves slug against tenant registry and verifies portal ACTIVE/public flags.
-2. Backend derives tenant from an approved trusted route/origin-to-tenant binding or a signed scoped session; validate server-side and reject mismatches. Do not accept arbitrary `Host` or `X-Forwarded-Host` unless reverse proxy strips/sets them and hosts allowlisted.
-3. A user on `app.<baseDomain>/w/:slug` must have a session for that exact tenant; changing slug never changes privileges.
-4. Shared storage and DB are logical multi-tenancy; no tenant query may omit scope. Private files use unique tenant prefix plus DB authorization.
+1. Portal/workspace requests land at `<slug>.<baseDomain>`; platform requests land at the configured platform host.
+2. Per ADR-0008, the edge routes `/v1/*` on those hosts to Express and other paths to Next.js. It preserves only a validated external host and strips/sets forwarding headers itself.
+3. Express allowlists the platform host or one valid slug under `BASE_DOMAIN`, resolves that tenant in PostgreSQL, and rejects host/session audience mismatches. Client-supplied tenant IDs, slugs and forwarding headers never establish scope.
+4. Host-only cookies prevent browser cookie sharing between agency/platform hosts; server-side tenant binding remains mandatory defense in depth.
+5. Shared storage and DB are logical multi-tenancy; no tenant query may omit scope. Private files use unique tenant prefix plus DB authorization.
 
 ## Reliable assignment algorithm (transaction boundary)
 ```ts

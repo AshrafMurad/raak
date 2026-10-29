@@ -25,3 +25,6 @@ Thumbs.db
 *.sqlite3
 tmp/
 temp/
+
+# SDD plan workspaces (agent scratch)
+.superpowers/

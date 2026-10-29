@@ -2,8 +2,12 @@
  * Locale contract — frontend copy of the closed set (ADR-0006; backend owns
  * the canonical version in `backend/src/contracts/locales.ts`).
  */
-import ar from '../messages/ar/common.json';
-import en from '../messages/en/common.json';
+import arCommon from '../messages/ar/common.json';
+import enCommon from '../messages/en/common.json';
+import arAuth from '../messages/ar/auth.json';
+import enAuth from '../messages/en/auth.json';
+import arPlatform from '../messages/ar/platform.json';
+import enPlatform from '../messages/en/platform.json';
 
 export const SUPPORTED_LOCALES = ['ar', 'en'] as const;
 
@@ -23,6 +27,9 @@ export function isLocale(value: string): value is Locale {
 export function otherLocale(locale: Locale): Locale {
   return locale === 'ar' ? 'en' : 'ar';
 }
+
+const ar = { ...arCommon, auth: arAuth, platform: arPlatform };
+const en: typeof ar = { ...enCommon, auth: enAuth, platform: enPlatform };
 
 export type Dictionary = typeof ar;
 

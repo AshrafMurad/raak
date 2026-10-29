@@ -4,3 +4,5 @@ export * from './errors';
 export * from './health';
 export * from './pagination';
 export * from './context';
+export * from './auth';
+export * from './platform';
