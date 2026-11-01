@@ -42,7 +42,7 @@
 2. Resolve tenant from trusted host/workspace binding on server; validate slug -> tenant id; no arbitrary `X-Tenant-ID` client trust.
 3. Where route includes id, DB lookup must include scoped tenant constraint; `404` for nonexistent OR inaccessible resource to prevent enumeration.
 4. Prevent mass assignment: customer cannot set `tenantId`, `role`, `verified`, `clinicalApproved`, prices, assignment or request status from request body.
-5. Only backend workflow methods perform state transitions. API middleware guards authenticate and authorizes; domain service performs resource-level grant checks again.
+5. Only backend workflow methods perform state transitions. API middleware guards authenticate and authorizes; domain service performs resource-level grant checks again (Sprint 1: platform control-plane and staff-invitation services re-run the central `authorize()` registry; later sprints extend the same pattern, never bypass it).
 6. Caregiver visit read permits only assigned visit current/history and minimum beneficiary details necessary to perform task; may not list all patients or view agency attachments indiscriminately.
 7. File download authorizes resource AND parent patient/request AND grant scope; short-lived signed link only.
 8. Frontend hide/show controls are advisory, not security boundaries.
@@ -57,7 +57,7 @@ Available scopes: `VIEW_BASIC`, `SUBMIT_REQUEST`, `VIEW_VISITS`, `MANAGE_VISITS`
 
 ## Registration and invitation
 - Agency owner signup verifies email; platform activates tenant manually.
-- Agency staff cannot public-register; admin creates caregiver/staff operational profile, `Invitation` with hash(token), expiry (suggest 48h), max usage 1, recipient email, tenant and intended role. Recipient sets credentials/accepts invite; do not give care assignments before account and qualification checks pass.
+- Agency staff cannot public-register; admin creates caregiver/staff operational profile, `Invitation` with hash(token), expiry (suggest 48h), max usage 1, recipient email, tenant and intended role. Recipient sets credentials/accepts invite; do not give care assignments before account and qualification checks pass. Invitation acceptance is valid only on the invitation's own server-resolved tenant host; wrong-tenant or platform-host acceptance is refused generically without consuming the token or creating an account.
 - Customer registration verifies email, optional linkage to guest requests via separate re-authenticated claim flow.
 - Guest tracker: rate-limited email OTP/magic link (short TTL e.g. 15 min), opaque random token stored only hashed, one-use, scope limited to one request/quote; no bare tracking code as access token.
 - Session: opaque secure `HttpOnly`, `Secure`, `SameSite=Lax` or stricter cookies; CSRF protection for state-changing cookie-authenticated endpoints, rotation on login/role changes, logout/all sessions revoke. Prevent tenant cookie leakage across subdomains (host-only cookies per auth app; if centralized, enforce tenant audience on session).

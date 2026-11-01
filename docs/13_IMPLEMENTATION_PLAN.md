@@ -56,13 +56,20 @@ flowchart LR
 - Tenant creation/status, owner verification, operator activation/suspend.
 - Staff/customer auth realms and invites, session guard, CSRF, tenant host resolver, permission service.
 - Add wrong-tenant tests for all new routes; build Super Admin tenant list.
-- **Exit:** E01 and I01/I05/I06/I15 pass.
+- **Exit:** E01 steps 1–4 (register → verify → pending → activate, at API
+  level), I05, I06 (invitation tokens bound to their tenant host) and I15
+  plus the host/session isolation matrices pass. Full E01 (branding/services
+  → portal visible) is demonstrated in Sprint 2; exact I01 patient/visit/
+  document object-by-ID isolation remains mandatory in the sprints that own
+  those domains (4–6). See ADR-0009.
 
 ### Sprint 2 — Catalog and guest intake
 - Platform service templates, agency-specific service clone/custom, publish/unpublish.
 - Agency logo/primary brand settings, service list/detail, guest request form, verified request link.
 - Locale-aware form validation, guest spam/rate limit; queue states and email receipt.
-- **Exit:** E02 works in AR and EN; guest no account requirement met.
+- **Exit:** E02 works in AR and EN; guest no account requirement met; full
+  E01 (brand/services configuration → portal visible) demonstrated end to
+  end (completes the E01 split recorded in ADR-0009).
 
 ### Sprint 3 — Commercial journey
 - Fixed pricing snapshot and price agreement acknowledgement; quote draft/send/expiry/version/revision.
