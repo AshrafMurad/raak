@@ -6,6 +6,11 @@ export const WorkerEnvSchema = z.object({
   REDIS_URL: z.string().min(1).default('redis://127.0.0.1:6379'),
   WORKER_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).default(8081),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  SESSION_SECRET: z.string().min(32).optional(),
+  BASE_DOMAIN: z.string().min(1).optional(),
+  PORTAL_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  EMAIL_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional()),
+  EMAIL_FROM: z.preprocess((v) => (v === '' ? undefined : v), z.email().optional()),
 });
 
 export type WorkerEnv = z.infer<typeof WorkerEnvSchema>;
