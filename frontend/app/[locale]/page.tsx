@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import { CatalogPortal } from '../../features/catalog/portal';
 import { DEFAULT_LOCALE, getDictionary, isLocale, otherLocale, type Locale } from '../../lib/i18n';
 
 interface LocalePageProps {
@@ -8,6 +10,11 @@ interface LocalePageProps {
 export default async function HomePage({ params }: LocalePageProps) {
   const { locale: raw } = await params;
   const locale: Locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
+  // This selects the surface only. The API resolves tenant identity and denies
+  // unknown/inactive hosts; the frontend never supplies a tenant identifier.
+  const host = (await headers()).get('host')?.split(':')[0] ?? '';
+  const platformHost = process.env.PLATFORM_HOST ?? (process.env.BASE_DOMAIN ? `platform.${process.env.BASE_DOMAIN}` : 'platform.localhost');
+  if (host !== platformHost && host !== 'localhost' && host !== '127.0.0.1') return <CatalogPortal locale={locale} />;
   const dict = getDictionary(locale);
   const switchTarget = otherLocale(locale);
 

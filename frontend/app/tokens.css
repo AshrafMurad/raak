@@ -11,6 +11,16 @@
   --raak-brand-primary-subtle: #eef1fa;
   --raak-brand-accent: #7485cf;
   --raak-brand-accent-subtle: #e9eaf9;
+  --raak-brand-lavender-action: color-mix(
+    in srgb,
+    var(--raak-brand-primary) 60%,
+    var(--raak-brand-accent)
+  );
+  --raak-brand-lavender-action-hover: color-mix(
+    in srgb,
+    var(--raak-brand-primary) 80%,
+    var(--raak-brand-accent)
+  );
 
   /* App + surfaces */
   --raak-app-background: #f8f9fd;
@@ -71,6 +81,77 @@
 }
 
 /* Arabic body copy gets comfortable line-height (docs 10: 1.65–1.85). */
+.rv-root {
+  --rv-primary: var(--raak-brand-primary);
+  --rv-primary-hover: var(--raak-brand-primary-hover);
+  --rv-action-background: var(--raak-brand-primary);
+  --rv-action-hover: var(--raak-brand-primary-hover);
+  --rv-action-text: var(--raak-surface-default);
+  --rv-selected: var(--raak-brand-primary-subtle);
+  --rv-selected-text: var(--raak-brand-primary);
+  --rv-selection-marker: var(--raak-brand-primary);
+  --rv-focus: var(--raak-brand-primary);
+  --rv-accent: var(--raak-brand-accent);
+  --rv-accent-soft: var(--raak-brand-accent-subtle);
+  --rv-canvas: var(--raak-app-background);
+  --rv-surface: var(--raak-surface-default);
+  --rv-sidebar: var(--raak-surface-default);
+  --rv-workspace: var(--raak-surface-default);
+  --rv-elevated: var(--raak-surface-default);
+  --rv-text: var(--raak-text-primary);
+  --rv-muted: color-mix(in srgb, var(--raak-text-secondary) 88%, var(--raak-text-primary));
+  --rv-border: var(--raak-border-default);
+  --rv-control-border: color-mix(in srgb, var(--rv-border) 20%, var(--rv-muted));
+  --rv-hover: color-mix(in srgb, var(--rv-primary) 4%, var(--rv-surface));
+  --rv-disabled-background: var(--rv-canvas);
+  --rv-status-min-width: 116px;
+  --rv-success: var(--raak-status-success);
+  --rv-warning: var(--raak-status-warning);
+  --rv-danger: var(--raak-status-danger);
+  --rv-success-text: color-mix(in srgb, var(--rv-success) 80%, var(--rv-text));
+  --rv-warning-text: color-mix(in srgb, var(--rv-warning) 80%, var(--rv-text));
+  --rv-danger-text: color-mix(in srgb, var(--rv-danger) 80%, var(--rv-text));
+  --rv-info: var(--raak-status-info);
+  --rv-control-radius: var(--raak-radius-control);
+  --rv-surface-radius: var(--raak-radius-card);
+  --rv-shadow-overlay: 0 12px 48px rgb(32 42 64 / 12%);
+  --rv-motion-feedback: 120ms;
+  --rv-motion-theme: 180ms;
+  --rv-motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --rv-transition-colors:
+    color var(--rv-motion-theme) var(--rv-motion-ease),
+    background-color var(--rv-motion-theme) var(--rv-motion-ease),
+    border-color var(--rv-motion-theme) var(--rv-motion-ease),
+    outline-color var(--rv-motion-feedback) var(--rv-motion-ease);
+}
+.rv-root[data-theme='dark'] {
+  --rv-primary: #b3c2ff;
+  --rv-primary-hover: #c8d2ff;
+  --rv-action-background: #97a8ec;
+  --rv-action-hover: #afbef5;
+  --rv-action-text: #141b2b;
+  --rv-selected: color-mix(in srgb, var(--raak-brand-primary) 22%, #26272b);
+  --rv-selected-text: #dcdff0;
+  --rv-selection-marker: #b5b9e5;
+  --rv-focus: #b5b9e5;
+  --rv-accent: #8f9fe4;
+  --rv-accent-soft: color-mix(in srgb, var(--raak-brand-accent) 13%, #202124);
+  --rv-canvas: #161719;
+  --rv-surface: #202124;
+  --rv-sidebar: #1b1c1f;
+  --rv-workspace: var(--rv-canvas);
+  --rv-elevated: #26272b;
+  --rv-text: #eceef2;
+  --rv-muted: #b8bbc4;
+  --rv-border: #34363c;
+  --rv-control-border: #777b85;
+  --rv-hover: #292b2f;
+  --rv-success: #69c6a5;
+  --rv-warning: #e5b66e;
+  --rv-danger: #ef9199;
+  --rv-info: #9dbbf0;
+  --rv-shadow-overlay: 0 12px 48px rgb(0 0 0 / 35%);
+}
 :root[lang='ar'] body {
   line-height: 1.75;
 }

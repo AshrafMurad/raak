@@ -5,6 +5,8 @@ import arAuth from '../messages/ar/auth.json';
 import enAuth from '../messages/en/auth.json';
 import arPlatform from '../messages/ar/platform.json';
 import enPlatform from '../messages/en/platform.json';
+import arDesignPreview from '../messages/ar/design-preview.json';
+import enDesignPreview from '../messages/en/design-preview.json';
 import {
   DEFAULT_LOCALE,
   LOCALE_DIRECTION,
@@ -29,13 +31,23 @@ describe('dictionaries', () => {
       [ar, en],
       [arAuth, enAuth],
       [arPlatform, enPlatform],
+      [arDesignPreview, enDesignPreview],
     ]) {
       expect(keyPaths(english).sort()).toEqual(keyPaths(arabic).sort());
     }
   });
 
   it('every leaf value is a non-empty string', () => {
-    for (const dictionary of [ar, en, arAuth, enAuth, arPlatform, enPlatform]) {
+    for (const dictionary of [
+      ar,
+      en,
+      arAuth,
+      enAuth,
+      arPlatform,
+      enPlatform,
+      arDesignPreview,
+      enDesignPreview,
+    ]) {
       for (const path of keyPaths(dictionary)) {
         const parts = path.split('.');
         let node: unknown = dictionary;

@@ -67,6 +67,38 @@ tenant/account status and `sessionVersion` are rechecked on every private call.
 | `quote_revision_requests` | `id,tenantId,quoteGroupId,quoteId,customerAccountId?,requesterVerifiedTokenRef?,message,status,createdAt,resolvedAt?` | partial unique pending per quoteGroup |
 
 ## Patients and access
+
+### Implemented Sprint 2 persistence
+
+Migrations `20261101113500_sprint2_catalog_intake` and
+`20261101150000_sprint2_delivery_integrity` add platform templates, tenant agency
+offerings, service requests, status history, guest capabilities/sessions,
+coordinator request notifications and email delivery tracking. The second
+migration adds same-tenant staff-notification and event-delivery composite FKs;
+applied migration history is preserved.
+
+- `AgencyService.config` is a strictly validated, versioned configuration JSON
+  containing the logical bilingual description/duration/qualifications/areas/
+  pricing fields above. Identity, tenant, template, publication, enabled state,
+  version and timestamps are columns. Templates contain independent config.
+- `Tenant.brandJson/brandVersion` store permitted bilingual public branding,
+  validated re-encoded public PNG logo and area configuration; no original
+  sensitive attachment is stored here.
+- Requests have separate requester/contact/beneficiary columns, tenant-consistent
+  service FK, unique `(tenantId,idempotencyKey)` and `(tenantId,reference)`,
+  HMAC payload digest, server submission time, privacy notice version,
+  price acknowledgment and immutable service/pricing snapshot. There is no
+  customer/patient association created by guest intake in this sprint.
+- `GuestActionToken` stores authorization hash, purpose, email digest and expiry/
+  consumption, plus a short-lived encrypted delivery secret scrubbed on send or
+  use. `GuestSession` stores a hashed request-scoped secret and expiry.
+- `RequestNotification` binds tenant/request/staff with composite FKs;
+  `EmailDelivery` binds tenant/outbox event, with status, attempts, retry time,
+  lease and safe error code. No email body/provider token goes into audit.
+- CHECK constraints enforce positive versions, valid request statuses and
+  published-implies-enabled. Same-tenant composite FKs protect request/service,
+  history/request, capability/request and session/request relationships.
+
 | Table | Essential fields | Constraints / notes |
 |---|---|---|
 | `patients` | `id,tenantId,displayName,dateOfBirth?,contact?,areaId,addressRestricted?,status,notesRestricted?` | same-tenant relationships; no automatic duplicate uniqueness by name |
