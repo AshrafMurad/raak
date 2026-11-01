@@ -13,7 +13,7 @@ import type { HostRealm, HostRealmResolver, AcceptedRealm } from './host-resolve
 import type { ResolvedStaff, ResolvedCustomer, ResolvedOperator } from './session.service';
 import { resolveSession } from './session.service';
 import { sessionCookieName, csrfCookieName } from './cookies';
-import { authorize, type PermissionAction } from './permissions';
+import { authorize, principalFromAuth, type PermissionAction } from './permissions';
 
 export interface AuthState {
   sessionId: string;
@@ -194,14 +194,7 @@ export function requirePermission(action: PermissionAction): RequestHandler {
         );
       return;
     }
-    const decision = authorize(
-      {
-        principalType: auth.session.principalType,
-        ...(auth.staff?.role !== undefined ? { role: auth.staff.role } : {}),
-        ...(auth.realm.kind === 'AGENCY' ? { tenantStatus: auth.realm.tenant.status } : {}),
-      },
-      action,
-    );
+    const decision = authorize(principalFromAuth(auth), action);
     if (!decision.allowed) {
       res
         .status(403)

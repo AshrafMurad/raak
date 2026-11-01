@@ -72,7 +72,7 @@ export function createPlatformRouter(deps: PlatformControllerDeps): Router {
         );
         return;
       }
-      res.json({ data: await service.listTenants(query.data) });
+      res.json({ data: await service.listTenants(req.auth!, query.data) });
     }),
   );
 
@@ -89,7 +89,7 @@ export function createPlatformRouter(deps: PlatformControllerDeps): Router {
         );
         return;
       }
-      res.json({ data: await service.getTenant(parsed.data.tenantId) });
+      res.json({ data: await service.getTenant(req.auth!, parsed.data.tenantId) });
     }),
   );
 
@@ -134,7 +134,7 @@ export function createPlatformRouter(deps: PlatformControllerDeps): Router {
         );
         return;
       }
-      res.json({ data: await service.listAudit(query.data) });
+      res.json({ data: await service.listAudit(req.auth!, query.data) });
     }),
   );
 
