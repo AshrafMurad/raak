@@ -3,6 +3,14 @@
 ## Execution model
 Build **vertical slices** with a deployable app after each slice, rather than completing every model and then every UI. Timebox includes test and error-path validation. Keep scope protected and record technical ADRs when implementation defaults change. Do not let agent invent new features or alter business states casually.
 
+**UI handoff — owner-approved 2026-11-01:** apply the approved-preview and
+shared-UI contract in `10_UI_UX_DESIGN_SYSTEM.md` to every subsequent frontend
+slice. Before the first production UI slice, promote the reusable preview
+foundations it needs and switch the preview to those shared implementations.
+Continue reuse and board verification in each sprint; this is an implementation
+prerequisite within the relevant slice, not a new domain sprint or completion of
+production workflows.
+
 ## Milestones
 | Phase | Objective | Deliverable / gate |
 |---|---|---|
@@ -87,6 +95,7 @@ flowchart LR
 - Domain invariants and error cases fully implemented and covered by tests; correct status history/audit and outbox on state changes.
 - Tenant scoped DB queries; `authorize()` checked at endpoint and domain resource boundary; synthetic seed no real PHI.
 - API schema/contract updated; UI loading/error/empty/success states and Arabic/English translations present.
+- UI follows the approved baseline and shared-UI acceptance checks in `10_UI_UX_DESIGN_SYSTEM.md`; slice reports identify shared components reused, extended or added.
 - Typecheck/lint/test/build pass; responsive design reviewed; progress notes and ADRs updated.
 - Code review notes include security assumptions, risks, and what was intentionally deferred.
 
