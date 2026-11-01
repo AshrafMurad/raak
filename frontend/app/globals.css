@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import '../components/ui/styles.css';
 
 /* Map locked brand tokens into Tailwind utilities (bg-brand, text-ink, …). */
 @theme inline {

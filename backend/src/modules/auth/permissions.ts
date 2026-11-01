@@ -10,6 +10,11 @@ export const PERMISSION_ACTIONS = [
   'platform.tenants.suspend',
   'platform.audit.read',
   'staff.invitations.create',
+  'catalog.read',
+  'catalog.draft',
+  'catalog.publish',
+  'branding.manage',
+  'requests.review',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -34,7 +39,10 @@ const PLATFORM_ACTIONS: ReadonlySet<string> = new Set([
 
 const INVITATION_ROLES: ReadonlySet<string> = new Set(['AGENCY_OWNER', 'AGENCY_ADMIN']);
 
-export function authorize(principal: AuthzPrincipal | null | undefined, action: PermissionAction): AuthzDecision {
+export function authorize(
+  principal: AuthzPrincipal | null | undefined,
+  action: PermissionAction,
+): AuthzDecision {
   if (!principal) return { allowed: false };
 
   if (principal.principalType === 'PLATFORM_OPERATOR') {
@@ -42,10 +50,18 @@ export function authorize(principal: AuthzPrincipal | null | undefined, action: 
   }
 
   if (principal.principalType === 'AGENCY_STAFF') {
+    if (principal.tenantStatus === 'ACTIVE') {
+      const admin = principal.role === 'AGENCY_OWNER' || principal.role === 'AGENCY_ADMIN';
+      if (['catalog.read', 'catalog.draft', 'requests.review'].includes(action))
+        return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
+      if (action === 'catalog.publish' || action === 'branding.manage') return { allowed: admin };
+    }
     if (action === 'staff.invitations.create') {
       return {
         allowed:
-          principal.tenantStatus === 'ACTIVE' && !!principal.role && INVITATION_ROLES.has(principal.role),
+          principal.tenantStatus === 'ACTIVE' &&
+          !!principal.role &&
+          INVITATION_ROLES.has(principal.role),
       };
     }
     return { allowed: false };

@@ -26,8 +26,9 @@ function apiUrl(path: string, realm: RealmTarget): string {
       url.hostname = current;
     }
   }
-  url.pathname = `/v1${path}`;
-  url.search = '';
+  const resource = new URL(`/v1${path}`, url);
+  url.pathname = resource.pathname;
+  url.search = resource.search;
   return url.toString();
 }
 

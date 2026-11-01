@@ -1,7 +1,5 @@
-// Raak — Sprint 1 schema scope: tenancy root, outbox stub and the identity /
-// control-plane tables (docs 05, docs 06 "Identity and tenancy tables").
-// Remaining domain tables (catalog, requests, quotes, patients, plans, visits,
-// notifications) are added by their owning sprints per docs/13_IMPLEMENTATION_PLAN.md.
+// Raak — Sprint 1 identity/control plane and Sprint 2 catalog/guest intake.
+// Commercial, patient, plan and visit tables arrive in their owning sprints.
 
 generator client {
   provider = "prisma-client"
@@ -25,11 +23,14 @@ model Tenant {
   supportEmail    String       @map("support_email")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
+  brandJson       Json?        @map("brand_json")
+  brandVersion    Int          @default(0) @map("brand_version")
 
-  staffAccounts      StaffAccount[]
-  customerAccounts   CustomerAccount[]
-  staffInvitations   StaffInvitation[]
-  caregivers         Caregiver[]
+  staffAccounts    StaffAccount[]
+  customerAccounts CustomerAccount[]
+  staffInvitations StaffInvitation[]
+  caregivers       Caregiver[]
+  agencyServices   AgencyService[]
 
   @@index([status])
   @@map("tenants")
@@ -109,10 +110,12 @@ model StaffAccount {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  invitationsCreated StaffInvitation[] @relation("InvitationCreator")
-  caregiver          Caregiver?
+  invitationsCreated   StaffInvitation[]     @relation("InvitationCreator")
+  caregiver            Caregiver?
+  requestNotifications RequestNotification[]
 
   @@unique([tenantId, emailNormalized])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("staff_accounts")
 }
@@ -138,18 +141,18 @@ model CustomerAccount {
 
 /// docs 06 — staff_invitations. Hashed opaque token, single-use, 48h expiry.
 model StaffInvitation {
-  id                   String     @id @default(uuid()) @db.Uuid
-  tenantId             String     @map("tenant_id") @db.Uuid
-  tenant               Tenant     @relation(fields: [tenantId], references: [id])
-  emailNormalized      String     @map("email_normalized")
+  id                   String       @id @default(uuid()) @db.Uuid
+  tenantId             String       @map("tenant_id") @db.Uuid
+  tenant               Tenant       @relation(fields: [tenantId], references: [id])
+  emailNormalized      String       @map("email_normalized")
   role                 StaffRole
-  caregiverProfileJson Json?      @map("caregiver_profile_json")
-  tokenHash            String     @unique @map("token_hash")
-  expiresAt            DateTime   @map("expires_at")
-  consumedAt           DateTime?  @map("consumed_at")
-  createdByStaffId     String     @map("created_by_staff_id") @db.Uuid
+  caregiverProfileJson Json?        @map("caregiver_profile_json")
+  tokenHash            String       @unique @map("token_hash")
+  expiresAt            DateTime     @map("expires_at")
+  consumedAt           DateTime?    @map("consumed_at")
+  createdByStaffId     String       @map("created_by_staff_id") @db.Uuid
   createdBy            StaffAccount @relation("InvitationCreator", fields: [createdByStaffId], references: [id])
-  createdAt            DateTime   @default(now()) @map("created_at")
+  createdAt            DateTime     @default(now()) @map("created_at")
 
   @@index([tenantId, emailNormalized])
   @@map("staff_invitations")
@@ -194,16 +197,16 @@ model EmailToken {
 /// auth events (docs 06 AUDIT_EVENT + docs 07 /platform/audit).
 /// tenantId nullable for platform-scope rows; never hard-deleted.
 model AuditEvent {
-  id            String         @id @default(uuid()) @db.Uuid
-  tenantId      String?        @map("tenant_id") @db.Uuid
-  actorType     PrincipalType? @map("actor_type")
-  actorId       String?        @map("actor_id") @db.Uuid
-  action        String
-  subjectType   String         @map("subject_type")
-  subjectId     String?        @map("subject_id") @db.Uuid
-  reason        String?
-  metadataJson  Json           @map("metadata_json")
-  at            DateTime       @default(now())
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String?        @map("tenant_id") @db.Uuid
+  actorType    PrincipalType? @map("actor_type")
+  actorId      String?        @map("actor_id") @db.Uuid
+  action       String
+  subjectType  String         @map("subject_type")
+  subjectId    String?        @map("subject_id") @db.Uuid
+  reason       String?
+  metadataJson Json           @map("metadata_json")
+  at           DateTime       @default(now())
 
   @@index([tenantId, at])
   @@index([action, at])
@@ -213,18 +216,18 @@ model AuditEvent {
 /// docs 06 — caregivers (minimal Sprint 1 columns; qualification workflow and
 /// availability arrive in Sprint 4-5). operationalStatus INACTIVE until then.
 model Caregiver {
-  id                            String  @id @default(uuid()) @db.Uuid
-  tenantId                      String  @map("tenant_id") @db.Uuid
-  tenant                        Tenant  @relation(fields: [tenantId], references: [id])
-  staffAccountId                String? @unique @map("staff_account_id") @db.Uuid
-  staffAccount                  StaffAccount? @relation(fields: [staffAccountId], references: [id])
-  name                          String
-  professionalCategory          String  @map("professional_category")
-  operationalStatus             String  @default("INACTIVE") @map("operational_status")
-  serviceAreasJson              Json    @default("[]") @map("service_areas_json")
-  qualificationVerificationStatus String @default("UNVERIFIED") @map("qualification_verification_status")
-  createdAt                     DateTime @default(now()) @map("created_at")
-  updatedAt                     DateTime @updatedAt @map("updated_at")
+  id                              String        @id @default(uuid()) @db.Uuid
+  tenantId                        String        @map("tenant_id") @db.Uuid
+  tenant                          Tenant        @relation(fields: [tenantId], references: [id])
+  staffAccountId                  String?       @unique @map("staff_account_id") @db.Uuid
+  staffAccount                    StaffAccount? @relation(fields: [staffAccountId], references: [id])
+  name                            String
+  professionalCategory            String        @map("professional_category")
+  operationalStatus               String        @default("INACTIVE") @map("operational_status")
+  serviceAreasJson                Json          @default("[]") @map("service_areas_json")
+  qualificationVerificationStatus String        @default("UNVERIFIED") @map("qualification_verification_status")
+  createdAt                       DateTime      @default(now()) @map("created_at")
+  updatedAt                       DateTime      @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@map("caregivers")
@@ -233,14 +236,153 @@ model Caregiver {
 /// docs 08 — outbox stub: state changes and their events commit in one DB
 /// transaction; a later sprint's worker dispatches due events to BullMQ.
 model OutboxEvent {
-  id             String    @id @default(uuid()) @db.Uuid
-  tenantId       String?   @map("tenant_id") @db.Uuid
-  eventType      String    @map("event_type")
-  aggregateId    String    @map("aggregate_id") @db.Uuid
-  payloadMinimal Json      @map("payload_minimal")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  processedAt    DateTime? @map("processed_at")
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String?         @map("tenant_id") @db.Uuid
+  eventType      String          @map("event_type")
+  aggregateId    String          @map("aggregate_id") @db.Uuid
+  payloadMinimal Json            @map("payload_minimal")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  processedAt    DateTime?       @map("processed_at")
+  deliveries     EmailDelivery[]
 
+  @@unique([tenantId, id])
   @@index([processedAt, createdAt])
   @@map("outbox_events")
+}
+
+model PlatformService {
+  id       String          @id @default(uuid()) @db.Uuid
+  code     String          @unique
+  config   Json
+  active   Boolean         @default(true)
+  services AgencyService[]
+
+  @@map("platform_services")
+}
+
+model AgencyService {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  templateId  String?          @map("template_id") @db.Uuid
+  template    PlatformService? @relation(fields: [templateId], references: [id])
+  slug        String
+  config      Json
+  isEnabled   Boolean          @default(true) @map("is_enabled")
+  isPublished Boolean          @default(false) @map("is_published")
+  version     Int              @default(1)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  requests    ServiceRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, slug])
+  @@index([tenantId, isPublished])
+  @@map("agency_services")
+}
+
+model ServiceRequest {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  tenantId                 String                 @map("tenant_id") @db.Uuid
+  agencyServiceId          String                 @map("agency_service_id") @db.Uuid
+  service                  AgencyService          @relation(fields: [tenantId, agencyServiceId], references: [tenantId, id])
+  reference                String
+  idempotencyKey           String                 @map("idempotency_key")
+  payloadHash              String                 @map("payload_hash")
+  requesterName            String                 @map("requester_name")
+  requesterEmailNormalized String                 @map("requester_email_normalized")
+  requesterPhone           String                 @map("requester_phone")
+  beneficiaryName          String                 @map("beneficiary_name")
+  relationship             String
+  areaId                   String                 @map("area_id")
+  preferredWindowJson      Json                   @map("preferred_window_json")
+  notesRestricted          String                 @map("notes_restricted")
+  locale                   String
+  privacyVersion           String                 @map("privacy_version")
+  serviceSnapshot          Json                   @map("service_snapshot")
+  priceAcknowledged        Boolean                @map("price_acknowledged")
+  status                   String                 @default("SUBMITTED")
+  version                  Int                    @default(1)
+  submittedAt              DateTime               @default(now()) @map("submitted_at")
+  tokens                   GuestActionToken[]
+  sessions                 GuestSession[]
+  history                  RequestStatusHistory[]
+  notifications            RequestNotification[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, reference])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, submittedAt])
+  @@map("service_requests")
+}
+
+model RequestStatusHistory {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @map("tenant_id") @db.Uuid
+  requestId  String         @map("request_id") @db.Uuid
+  request    ServiceRequest @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  fromStatus String?        @map("from_status")
+  toStatus   String         @map("to_status")
+  actorId    String?        @map("actor_id") @db.Uuid
+  at         DateTime       @default(now())
+
+  @@index([tenantId, requestId])
+  @@map("request_status_history")
+}
+
+model GuestActionToken {
+  id              String         @id @default(uuid()) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  requestId       String         @map("request_id") @db.Uuid
+  request         ServiceRequest @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  tokenHash       String         @unique @map("token_hash")
+  encryptedSecret String?        @map("encrypted_secret")
+  purpose         String         @default("REQUEST_STATUS")
+  emailHash       String         @map("email_hash")
+  expiresAt       DateTime       @map("expires_at")
+  consumedAt      DateTime?      @map("consumed_at")
+
+  @@index([tenantId, requestId])
+  @@map("guest_action_tokens")
+}
+
+model GuestSession {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @map("tenant_id") @db.Uuid
+  requestId  String         @map("request_id") @db.Uuid
+  request    ServiceRequest @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  secretHash String         @unique @map("secret_hash")
+  expiresAt  DateTime       @map("expires_at")
+
+  @@index([tenantId, requestId])
+  @@map("guest_sessions")
+}
+
+model RequestNotification {
+  id        String         @id @default(uuid()) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  requestId String         @map("request_id") @db.Uuid
+  request   ServiceRequest @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  staffId   String         @map("staff_id") @db.Uuid
+  staff     StaffAccount   @relation(fields: [tenantId, staffId], references: [tenantId, id])
+  readAt    DateTime?      @map("read_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@unique([tenantId, requestId, staffId])
+  @@map("request_notifications")
+}
+
+model EmailDelivery {
+  id            String      @id @default(uuid()) @db.Uuid
+  eventId       String      @unique @map("event_id") @db.Uuid
+  tenantId      String      @map("tenant_id") @db.Uuid
+  event         OutboxEvent @relation(fields: [tenantId, eventId], references: [tenantId, id])
+  status        String      @default("PENDING")
+  attempts      Int         @default(0)
+  retryAt       DateTime    @default(now()) @map("retry_at")
+  leaseUntil    DateTime?   @map("lease_until")
+  lastErrorCode String?     @map("last_error_code")
+
+  @@index([status, retryAt])
+  @@map("email_deliveries")
 }

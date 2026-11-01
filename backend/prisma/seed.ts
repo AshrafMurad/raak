@@ -31,6 +31,30 @@ const EXPIRED_INVITATION_TOKEN_HASH = sha256('synthetic-expired-invitation-token
 async function main() {
   const prisma = getPrisma();
   const passwordHash = await hashPassword(DEV_PASSWORD);
+  await prisma.platformService.upsert({
+    where: { code: 'HOME_SUPPORT' },
+    update: {},
+    create: {
+      code: 'HOME_SUPPORT',
+      config: {
+        nameAr: 'دعم منزلي تجريبي',
+        nameEn: 'Synthetic home support',
+        summaryAr: 'قالب تجريبي قابل للتخصيص',
+        summaryEn: 'Synthetic customizable template',
+        descriptionAr: 'وصف تجريبي. تحدد الوكالة النطاق قبل النشر.',
+        descriptionEn: 'Synthetic description. The agency defines scope before publishing.',
+        durationMin: 60,
+        clinicalClass: 'NON_CLINICAL',
+        requiredQualificationCodes: [],
+        serviceAreaIds: ['central'],
+        allowStandalone: true,
+        allowRecurring: true,
+        pricingType: 'CUSTOM_QUOTE',
+        priceMinor: null,
+        pricingUnit: null,
+      },
+    },
+  });
 
   // --- Tenants (Sprint 0 fixtures, unchanged) ---
   await prisma.tenant.upsert({
@@ -77,7 +101,12 @@ async function main() {
   });
 
   const afiyaOwner = await prisma.staffAccount.upsert({
-    where: { tenantId_emailNormalized: { tenantId: TENANT_AFIYA_ID, emailNormalized: 'owner.afiya@example.invalid' } },
+    where: {
+      tenantId_emailNormalized: {
+        tenantId: TENANT_AFIYA_ID,
+        emailNormalized: 'owner.afiya@example.invalid',
+      },
+    },
     update: {},
     create: {
       tenantId: TENANT_AFIYA_ID,
@@ -90,7 +119,9 @@ async function main() {
   });
 
   await prisma.staffAccount.upsert({
-    where: { tenantId_emailNormalized: { tenantId: TENANT_AFIYA_ID, emailNormalized: SHARED_EMAIL } },
+    where: {
+      tenantId_emailNormalized: { tenantId: TENANT_AFIYA_ID, emailNormalized: SHARED_EMAIL },
+    },
     update: {},
     create: {
       tenantId: TENANT_AFIYA_ID,
@@ -103,7 +134,9 @@ async function main() {
   });
 
   await prisma.staffAccount.upsert({
-    where: { tenantId_emailNormalized: { tenantId: TENANT_ALNADWA_ID, emailNormalized: SHARED_EMAIL } },
+    where: {
+      tenantId_emailNormalized: { tenantId: TENANT_ALNADWA_ID, emailNormalized: SHARED_EMAIL },
+    },
     update: {},
     create: {
       tenantId: TENANT_ALNADWA_ID,
@@ -116,7 +149,12 @@ async function main() {
   });
 
   await prisma.customerAccount.upsert({
-    where: { tenantId_emailNormalized: { tenantId: TENANT_AFIYA_ID, emailNormalized: 'customer.afiya@example.invalid' } },
+    where: {
+      tenantId_emailNormalized: {
+        tenantId: TENANT_AFIYA_ID,
+        emailNormalized: 'customer.afiya@example.invalid',
+      },
+    },
     update: {},
     create: {
       tenantId: TENANT_AFIYA_ID,

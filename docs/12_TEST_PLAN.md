@@ -64,6 +64,8 @@
   demonstrated in Sprint 1 at API level; the full journey including
   brand/service configuration and portal visibility is demonstrated in
   Sprint 2.
+- **E02 (ADR-0010):** Sprint 2 includes coordinator queue/detail and only
+  SUBMITTED → UNDER_REVIEW; the complete E02 journey remains required in AR/EN.
 - **I01:** exact patient/visit/document object-by-ID isolation is mandatory
   and demonstrated in the owning domain sprints (patients/documents Sprint 4,
   visits Sprints 5–6) and in the release gates. Sprint 1 demonstrates the

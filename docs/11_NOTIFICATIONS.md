@@ -70,6 +70,36 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 - Optional future realtime transport may use SSE or WebSocket, with audience checks; polling is acceptable for MVP if responsive and server efficient.
 
 ## Tests
+
+### Implemented Sprint 2 delivery slice
+
+`RequestEvents` in `backend/src/contracts/events.ts` maps the generic receipt /
+SECURITY_VERIFICATION delivery to `email.request_access`; it carries only a
+token-record aggregate ID and request ID. `request.new` records new intake and
+`request.review_started` records the approved initial review transition.
+Coordinator `RequestNotification` rows are created in the intake transaction,
+without beneficiary details in notification projections.
+
+The worker polls eligible active-tenant email events into the dedicated
+`raak-request-email` BullMQ queue. It rechecks current tenant, requester email,
+token purpose/expiry/consumption before sending localized plain-text content.
+Each delivery uses a stable event/provider idempotency key, a two-minute lease,
+up to five business delivery attempts and exponential retry. Retained failed
+queue jobs are retried after infrastructure recovery; abandoned exhausted
+leases become FAILED, not SENT. Failure codes are safe and persisted.
+
+The installed Resend HTTP adapter requires `EMAIL_API_KEY`, verified
+`EMAIL_FROM`, `BASE_DOMAIN` and the same `SESSION_SECRET` in API and worker.
+`PORTAL_PORT` supports development ingress (default dev 3000); omit it for
+standard production HTTPS. When credentials are absent, events stay pending
+and the worker reports `EMAIL_NOT_CONFIGURED`; no fake send occurs.
+
+Automated tests use an injected synthetic capture sender, real PostgreSQL and
+Redis/BullMQ. Live provider/domain delivery proof is still an external gate.
+Full notification preferences, inbox/read management, other business templates
+and the remaining event matrix retain Sprint 7 ownership. Other event kinds
+are not acknowledged or discarded by the dedicated request-email consumer.
+
 - Essential event cannot be disabled by tenant admin.
 - Optional events honor tenant and personal settings.
 - No duplicate in-app/email event for retried same eventId.

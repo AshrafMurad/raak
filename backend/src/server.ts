@@ -13,6 +13,8 @@ import { createAuthRouter, type RateLimits } from './modules/auth/auth.controlle
 import { createAgencyRouter } from './modules/agency/agency.controller';
 import { createStaffRouter } from './modules/staff/staff.controller';
 import { createPlatformRouter } from './modules/platform/platform.controller';
+import { createCatalogRouter } from './modules/catalog/catalog.controller';
+import { createRequestingRouter } from './modules/requesting/requesting.controller';
 
 export interface AppDeps {
   env: AppEnv;
@@ -121,7 +123,10 @@ function corsMiddleware(allowOrigins: ReadonlyArray<string>) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, X-Request-ID');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, X-CSRF-Token, X-Request-ID, Idempotency-Key',
+      );
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') {
@@ -201,6 +206,11 @@ export function buildApp(deps: AppDeps): Express {
         }),
       );
       app.use('/v1', createPlatformRouter({ db: deps.db, now: deps.now }));
+      app.use('/v1', createCatalogRouter(deps.db));
+      app.use(
+        '/v1',
+        createRequestingRouter(deps.db, deps.now, deps.env.SESSION_SECRET, deps.env.corsOrigins),
+      );
     } else {
       // Fail closed when tenant routing is unconfigured.
       app.use('/v1', realmReject);
