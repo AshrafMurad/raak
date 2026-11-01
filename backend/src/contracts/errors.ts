@@ -28,6 +28,7 @@ export const ERROR_CODES = [
   'PLAN_DURATION_EXCEEDED',
   'RECURRENCE_TIME_INVALID',
   'IDEMPOTENCY_CONFLICT',
+  'VERSION_CONFLICT',
 ] as const;
 
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
