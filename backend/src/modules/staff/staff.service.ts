@@ -3,6 +3,7 @@
  * with hashed single-use 48h tokens; acceptance creates an ACTIVE staff
  * account (plus a caregiver profile row, INACTIVE until qualification
  * workflow in a later sprint). Never assigns care work before checks pass.
+ * Acceptance must arrive on the invitation's own tenant host (I06).
  */
 import type { DatabaseClient } from '../../db/client';
 import { appendAudit } from '../../db/audit';
@@ -11,6 +12,8 @@ import { ApiError } from '../../api-error';
 import type { CreateInvitationDto, AcceptInvitationDto } from '../../contracts';
 import { generateToken, hashPassword, hashToken } from '../auth/crypto';
 import type { AuthState } from '../auth/guards';
+import type { AcceptedRealm } from '../auth/host-resolver';
+import { authorize, principalFromAuth } from '../auth/permissions';
 import { lockTenantStatus } from '../../db/tenant-lock';
 import { Prisma } from '../../db/generated/prisma/client';
 
@@ -27,7 +30,10 @@ export function createStaffService(deps: StaffServiceDeps) {
 
   return {
     async createInvitation(auth: AuthState, input: CreateInvitationDto): Promise<{ invitationId: string; expiresAt: Date }> {
-      if (auth.realm.kind !== 'AGENCY' || !auth.staff) {
+      // Service-boundary re-check of the central policy (docs 05 rule 5): the
+      // HTTP permission gate already ran, but this method must stay safe when
+      // called from any other transport or future job.
+      if (!authorize(principalFromAuth(auth), 'staff.invitations.create').allowed || auth.realm.kind !== 'AGENCY' || !auth.staff) {
         throw new ApiError(403, 'FORBIDDEN', 'You are not allowed to perform this action.');
       }
       const tenantId = auth.realm.tenant.tenantId;
@@ -82,10 +88,19 @@ export function createStaffService(deps: StaffServiceDeps) {
       return { invitationId: invitation.id, expiresAt };
     },
 
-    async acceptInvitation(input: AcceptInvitationDto): Promise<void> {
+    /**
+     * I06: acceptance is only valid on the invitation's own tenant host. The
+     * host realm is resolved server-side from the trusted Host header; a
+     * wrong-tenant or platform-host attempt is refused with the same generic
+     * error as an unknown token (no enumeration) and consumes nothing.
+     */
+    async acceptInvitation(input: AcceptInvitationDto, realm: AcceptedRealm): Promise<void> {
       const passwordHash = await hashPassword(input.password);
       const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(input.token) } });
       if (!row) {
+        throw new ApiError(401, 'UNAUTHENTICATED', 'This invitation link is not valid.');
+      }
+      if (realm.kind !== 'AGENCY' || realm.tenant.tenantId !== row.tenantId) {
         throw new ApiError(401, 'UNAUTHENTICATED', 'This invitation link is not valid.');
       }
       if (row.consumedAt) {

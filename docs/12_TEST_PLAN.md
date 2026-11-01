@@ -58,6 +58,23 @@
 | I19 | 30min -> 60min travel buffer update | Historical unchanged; conflicts flagged prospectively |
 | I20 | Scheduled visit assigned caregiver loses verified license | Future impacted visits flagged/reassignment; no new assignments |
 
+### Milestone mapping (ADR-0009; ownership only — requirements unchanged)
+
+- **E01:** steps 1–4 (register → verify → pending → operator activation) are
+  demonstrated in Sprint 1 at API level; the full journey including
+  brand/service configuration and portal visibility is demonstrated in
+  Sprint 2.
+- **I01:** exact patient/visit/document object-by-ID isolation is mandatory
+  and demonstrated in the owning domain sprints (patients/documents Sprint 4,
+  visits Sprints 5–6) and in the release gates. Sprint 1 demonstrates the
+  boundary it owns: host-realm isolation and session isolation
+  (cross-host/wrong-tenant session denial, wrong-host invitation acceptance,
+  suspension revoking sessions). Sprint 1 contains no patient/visit/document
+  objects, so object-by-ID cases cannot exist there yet.
+- **I05, I06, I15:** fully demonstrated in Sprint 1 (both staff and customer
+  duplicate-email accounts for I05; I06 additionally requires tenant-host
+  bound acceptance).
+
 ## E2E journeys — Playwright
 **E01 Agency registration:** fill form -> verify -> pending -> operator activates -> configure brand/services -> portal visible.
 

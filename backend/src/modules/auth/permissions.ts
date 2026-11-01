@@ -54,3 +54,18 @@ export function authorize(principal: AuthzPrincipal | null | undefined, action: 
   // Customers hold no Sprint 1 actions.
   return { allowed: false };
 }
+
+import type { AuthState } from './guards';
+
+/**
+ * Build the policy principal from an authenticated request state. Shared by
+ * the HTTP permission gate and the service-boundary re-check (docs 05 rule 5)
+ * so both enforcement points always evaluate the same central registry.
+ */
+export function principalFromAuth(auth: AuthState): AuthzPrincipal {
+  return {
+    principalType: auth.session.principalType,
+    ...(auth.staff?.role !== undefined ? { role: auth.staff.role } : {}),
+    ...(auth.realm.kind === 'AGENCY' ? { tenantStatus: auth.realm.tenant.status } : {}),
+  };
+}

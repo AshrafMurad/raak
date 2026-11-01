@@ -2,13 +2,15 @@
  * Platform control plane (docs 05/07): operator-only tenant lifecycle and
  * audit reads. Aggregate counts and metadata only — no agency content, no
  * patient data. Suspend revokes every live tenant session in the same
- * transaction (I15).
+ * transaction (I15). Every method re-runs the central authorize() policy at
+ * this service boundary (docs 05 rule 5) in addition to the HTTP gate.
  */
 import type { DatabaseClient } from '../../db/client';
 import { appendAudit } from '../../db/audit';
 import { enqueueOutbox } from '../../db/outbox';
 import { ApiError } from '../../api-error';
 import type { AuthState } from '../auth/guards';
+import { authorize, principalFromAuth, type PermissionAction } from '../auth/permissions';
 import { revokeAllSessionsForTenant } from '../auth/session.service';
 
 const MAX_LIMIT = 100;
@@ -49,8 +51,15 @@ export function createPlatformService(deps: PlatformServiceDeps) {
     });
   }
 
+  function assertAllowed(auth: AuthState, action: PermissionAction): void {
+    if (!authorize(principalFromAuth(auth), action).allowed) {
+      throw new ApiError(403, 'FORBIDDEN', 'You are not allowed to perform this action.');
+    }
+  }
+
   return {
-    async listTenants(page: CursorPage & { status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' }) {
+    async listTenants(auth: AuthState, page: CursorPage & { status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' }) {
+      assertAllowed(auth, 'platform.tenants.read');
       const limit = clampLimit(page.limit);
       const tenants = await db.tenant.findMany({
         where: {
@@ -75,7 +84,8 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       };
     },
 
-    async getTenant(tenantId: string) {
+    async getTenant(auth: AuthState, tenantId: string) {
+      assertAllowed(auth, 'platform.tenants.read');
       const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
       if (!tenant) {
         throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
@@ -101,6 +111,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
     },
 
     async activateTenant(auth: AuthState, tenantId: string, reason?: string): Promise<{ tenantId: string; status: string }> {
+      assertAllowed(auth, 'platform.tenants.activate');
       const tenant = await db.$transaction(async (tx) => {
         const current = await tx.tenant.findUnique({ where: { id: tenantId } });
         if (!current) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
@@ -143,6 +154,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
     },
 
     async suspendTenant(auth: AuthState, tenantId: string, reason: string): Promise<{ tenantId: string; status: string }> {
+      assertAllowed(auth, 'platform.tenants.suspend');
       const tenant = await db.$transaction(async (tx) => {
         const current = await tx.tenant.findUnique({ where: { id: tenantId } });
         if (!current) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
@@ -173,7 +185,8 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       return { tenantId: tenant.id, status: tenant.status };
     },
 
-    async listAudit(page: CursorPage) {
+    async listAudit(auth: AuthState, page: CursorPage) {
+      assertAllowed(auth, 'platform.audit.read');
       const limit = clampLimit(page.limit);
       const rows = await db.auditEvent.findMany({
         where: {

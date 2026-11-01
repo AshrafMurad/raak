@@ -48,6 +48,15 @@ existing session. `TOKEN_EXPIRED` returns 401, `TOKEN_ALREADY_USED` returns 409,
 and unknown capability tokens return generic `UNAUTHENTICATED` without account
 enumeration.
 
+Staff invitation acceptance (`POST /staff/invitations/accept`) must be sent on
+the invitation's own server-resolved tenant host (the generated link already
+targets `{slug}.<RAAK_BASE_DOMAIN>/…#token=…`). Acceptance attempted on another
+tenant host or the platform host is rejected with generic `UNAUTHENTICATED`
+without consuming the token or creating an account; a subsequent acceptance on
+the correct host still succeeds. Privileged control-plane and staff operations
+re-run the central `authorize()` policy at the service boundary in addition to
+the HTTP permission gate.
+
 ## Agency service catalog and portal
 | Method | Path | Purpose |
 |---|---|---|
