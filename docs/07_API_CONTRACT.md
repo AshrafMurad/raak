@@ -69,6 +69,128 @@ the HTTP permission gate.
 | GET | `/portal/services/:slug` | Public service view and price display |
 
 ## Requests and guest access
+
+### Sprint 2 implementation — catalog, branding and initial intake
+
+Implemented routes: catalog template/list/create/read/edit/publish/unpublish;
+agency branding GET/PATCH; public service list/detail; guest submission and
+access-link issue/consume; request-only guest list/detail; coordinator request
+queue/detail/start-review; and the minimal coordinator new-request notification
+projection. ADR-0010 assigns only SUBMITTED → UNDER_REVIEW to this sprint.
+Other request transitions and commercial actions below remain future work.
+
+Canonical input schemas: `backend/src/contracts/catalog.ts`. Unknown body fields
+are rejected. Protected agency operations use session + CSRF + central policy,
+rechecked against the current staff/tenant at the transactional service boundary.
+
+#### Catalog and branding DTOs
+
+- `POST /agency/services`: `{slug, templateId?, config?}`. Template import copies
+  an active platform original into an independent tenant draft; custom offerings
+  provide `config`. An inactive/missing template is inaccessible. Agencies have
+  no endpoint that writes a platform original. The synthetic seed supplies a
+  stable `HOME_SUPPORT` template.
+- `config`: bilingual `nameAr/nameEn` (1–120), `summaryAr/summaryEn` (1–300),
+  `descriptionAr/descriptionEn` (1–3000), `durationMin` (15–720),
+  `clinicalClass=NON_CLINICAL|CLINICAL`, `requiredQualificationCodes[]`,
+  `serviceAreaIds[]` (1–50), `allowStandalone`, `allowRecurring`, `pricingType`,
+  `priceMinor`, `pricingUnit`. Clinical offerings require qualification codes;
+  at least one delivery mode is required. FIXED/STARTING_FROM require a
+  nonnegative integer amount (<=100000000 minor units) and VISIT/HOUR/SESSION
+  unit; CUSTOM_QUOTE has null amount/unit. Currency is server-owned tenant data.
+- `PATCH /agency/services/:id`: `{expectedVersion, slug, config, isEnabled}`.
+  Published edits require publication authority. Disabling also unpublishes.
+- Publish/unpublish: `{expectedVersion}`; increments version, audits and writes
+  an outbox event. Stale versions/duplicate slugs return `409 VERSION_CONFLICT`.
+  Publication requires enabled, valid configuration and permitted agency areas.
+  Edits and branding changes may not invalidate published service areas.
+- Owner/Admin: publication and branding; Owner/Admin/Coordinator: catalog reads
+  and draft creation/editing. Caregiver/customer/platform principals are denied.
+- Branding GET: `{branding, version}`. PATCH: `{expectedVersion, branding}`;
+  initial version is 0. Branding contains bilingual names/descriptions,
+  `primaryColor=MIDNIGHT|LAVENDER`, `areas:[{id,nameAr,nameEn}]` and optional
+  `logoPng` (base64 or null). Color treatments use semantic locked-palette tokens.
+- Logo is explicitly public brand data, not a patient attachment. Only <=128 KiB
+  PNG input, <=512×512, non-interlaced 8-bit RGB/RGBA is accepted. The server
+  validates signature, chunks/CRCs and bounded decompression, decodes pixels and
+  re-encodes without metadata/extra payload. No original upload, SVG, arbitrary
+  URL, CSS or HTML is served. Other encodings return 422.
+- Template and private service lists return `{items,nextCursor}`. Public list
+  returns `{agency:{displayName,brandJson,currency,timezone},services,nextCursor}`;
+  detail returns `{id,slug,config,version}` only. Lists support UUID opaque
+  `cursor`, `limit=20` default, maximum 100. Public reads are `no-store` and
+  require ACTIVE tenant + enabled/published service, otherwise 404 or a generic
+  tenant-unavailable response. IDs/references never grant authority.
+
+#### Guest submission and verification DTOs
+
+`POST /portal/requests` requires a 16–128 character opaque `Idempotency-Key` and:
+
+```json
+{
+  "serviceId":"<uuid>", "serviceVersion":2, "locale":"ar",
+  "requesterName":"<synthetic requester>", "requesterEmail":"synthetic@example.invalid",
+  "requesterPhone":"", "beneficiaryName":"<distinct synthetic beneficiary>",
+  "relationship":"SELF", "areaId":"central", "preferredDate":"2026-12-01",
+  "preferredPeriod":"FLEXIBLE", "notes":"", "privacyAccepted":true,
+  "privacyVersion":"2026-11-01", "priceAcknowledged":true, "website":""
+}
+```
+
+- Names <=120 characters; normalized email <=254; optional phone <=30 with
+  telephone characters only; relationship SELF/FAMILY/OTHER; period
+  MORNING/AFTERNOON/EVENING/FLEXIBLE; optional operational notes <=500. No medical
+  history, diagnosis, full address, tenant, patient, role or status input.
+- Date is valid ISO local date, not before the current date in the tenant zone.
+  Area must belong to both the published offering and configured agency areas.
+- Privacy acknowledgment/version is mandatory; submission time is server-owned.
+  FIXED pricing requires explicit price acknowledgment. The immutable service
+  snapshot includes published version, names/scope, pricing/unit and currency.
+- `website` is an empty honeypot. Per-host/IP limiting is 30 guest POSTs/15 min
+  per API process; DB enforcement caps new requests per tenant/email at 5/hour
+  and access-link issuance at 4/request/hour. Unknown email/reference requests
+  do not send mail. Shared multi-instance IP enforcement remains a rollout gate.
+- Success `201 {data:{id,reference}}` means SUBMITTED, not a confirmed visit.
+  Same key + same normalized payload returns the same safe receipt; different
+  payload returns `409 IDEMPOTENCY_CONFLICT`. There is no automatic patient,
+  customer-account claim, PatientAccess, quote, plan or visit creation.
+- Intake/publication/verification/review writes serialize on the resolved tenant
+  row with lifecycle changes; business data/history/audit/outbox commit together.
+  Providers are never called within a DB transaction.
+- Access-link issue: `{reference,email,locale}` → `202 {acknowledged:true}` for
+  both matches and nonmatches. Initial receipt delivery also supplies a secure
+  link, with no account requirement.
+- Consume: `{token}` → `{requestId}` plus host-only `HttpOnly`, `SameSite=Strict`
+  guest cookie (`Secure` in production), 30-minute expiry. The 15-minute random
+  capability is hash-authorized, single-use and bound to tenant/request/purpose/
+  current requester email. A delivery-only AES-GCM encrypted copy is scrubbed
+  after send or consumption; events contain only resource IDs. Wrong host does
+  not consume it. Expiry is 401; replay is 409. Links use fragments, cleared by
+  the client before consumption, with `no-referrer` and `no-store` responses.
+- Verified guest reads return only the one request's ID/reference/status,
+  submitted time, service snapshot, version and status timeline. List contains
+  that one request. Beneficiary/contact/notes are absent. Reference-only access
+  returns 401; another request ID returns 404. Existing customer login does not
+  infer ownership from email or grant patient access.
+- Cookie-authenticated agency mutations require CSRF. Public guest JSON
+  mutations check same-origin, or an explicitly allowlisted frontend origin on
+  the **same tenant hostname** for split-port development. CORS permits
+  `Idempotency-Key`; a different tenant origin is never a guest authority.
+
+#### Initial review and notification projection
+
+- Queue GET: `{items,nextCursor}`, 20 per page, optional SUBMITTED/UNDER_REVIEW
+  filter and UUID cursor. Owner/Admin/Coordinator only. List omits contact,
+  beneficiary and notes; authorized detail includes the minimal intake data.
+- Start-review POST: `{expectedVersion}` → `{id,status:"UNDER_REVIEW",version}`.
+  Only SUBMITTED can transition; concurrent losers receive 409; one history,
+  audit and outbox write commits. Later decision endpoints remain unimplemented.
+- `/notifications` currently returns up to 100 safe new-request notification
+  references for the current authorized coordinator/staff principal only.
+  Full notification inbox/read-policy management remains Sprint 7.
+- `VERSION_CONFLICT` is added to the error registry for catalog/branding/request
+  optimistic concurrency; other status meanings remain unchanged.
+
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/portal/requests` | Guest or logged-in submit; idempotent, anti-abuse |
