@@ -25,7 +25,7 @@
 
 ## Scope decisions (assumptions recorded; ADR if owner disagrees)
 
-1. **E01 split:** Sprint 1 delivers E01 steps 1–4 (register form → email verify → pending → operator activates). "Configure brand/services → portal visible" requires Sprint 2 catalog and completes there. E2E asserted via API integration test now; Playwright journey when portal screens exist.
+1. **E01 split:** Sprint 1 delivers E01 steps 1–4 (register form → email verify → pending → operator activates). "Configure brand/services → portal visible" requires Sprint 2 catalog and completes there. E2E asserted via API integration test now; Playwright journey when portal screens exist. Owner-approved milestone reconciliation recorded in ADR-0009 (full E01 remains a Sprint 2 exit requirement; nothing weakened).
 2. **New endpoint `POST /v1/auth/reset-password`** added to doc 07 (forgot-password is useless without consumption). Doc updated in Task 10.
 3. **Single `audit_events` table** with nullable `tenantId` (covers doc 07 `/platform/audit` operator rows and doc 06 tenant AUDIT_EVENT). Doc 06 note updated in Task 10.
 4. **Dev hosts:** staff/customer realm = `{slug}.localhost`, platform realm = `platform.localhost` (browser-resolvable, host-only cookies work); `BASE_DOMAIN` + `PLATFORM_HOST` env drive the trusted-host allowlist. Production subdomain strategy unchanged.
@@ -40,7 +40,7 @@
 
 1. **Cross-tenant session/host mix:** staff A session cookie replayed against tenant B host (or platform host) must be rejected as UNAUTHENTICATED/FORBIDDEN, never authenticated. → Task 5 tests.
 2. **Suspended tenant mid-session (I15):** next authenticated call denied even with a previously valid session/CSRF. → Task 8 tests.
-3. **Token replay/expiry (I04-analog, I06):** consumed/expired verification, reset and invitation tokens refused exactly once semantics (second use → TOKEN_ALREADY_USED/EXPIRED); invitation token bound to its tenant. → Tasks 6, 7 tests.
+3. **Token replay/expiry (I04-analog, I06):** consumed/expired verification, reset and invitation tokens refused exactly once semantics (second use → TOKEN_ALREADY_USED/EXPIRED); invitation token bound to its tenant **and consumable only on its own tenant host** (closure hardening, ADR-0009): wrong-tenant/platform-host acceptance is rejected generically without consuming the token; expiry, single-use, suspension and concurrency protections preserved. → Tasks 6, 7 tests.
 4. **Duplicate email across tenants (I05):** same email at A and B = independent accounts; login resolves tenant by host first; no enumeration or cross-sign-in. → Task 6 tests.
 5. **Host-header spoofing/unknown host:** untrusted Host (not under BASE_DOMAIN/PLATFORM_HOST) → request rejected before tenant lookup; platform routes unreachable with staff/customer cookies. → Task 5 tests.
 6. **CSRF absent/mismatched token on every mutating route** → 403 FORBIDDEN. → Task 5 tests (matrix).
@@ -159,9 +159,9 @@
 
 **Interfaces (Produces):**
 - `POST /v1/staff/invitations` (OWNER/ADMIN, tenant ACTIVE, CSRF): transaction — create StaffInvitation (role ∈ ADMIN/COORDINATOR/CAREGIVER, optional `caregiverProfileJson` snapshot for later caregiver row), token 48h hashed, outbox `email.staff_invitation`, audit `staff.invited`. 201 `{ invitationId, expiresAt }`.
-- `POST /v1/staff/invitations/accept` (public, rate-limited): consume token single-use; expired → `TOKEN_EXPIRED`, reused → `TOKEN_ALREADY_USED`; create StaffAccount ACTIVE bound to invitation tenantId+role (caregiver profile persisted to `caregivers` table minimal row with `staffAccountId` link, `operationalStatus=INACTIVE` until Sprint 4 qualification flow); audit `staff.invitation_accepted`. Caregiver account login allowed (used by later sprints).
+- `POST /v1/staff/invitations/accept` (public, rate-limited): consume token single-use; expired → `TOKEN_EXPIRED`, reused → `TOKEN_ALREADY_USED`; create StaffAccount ACTIVE bound to invitation tenantId+role (caregiver profile persisted to `caregivers` table minimal row with `staffAccountId` link, `operationalStatus=INACTIVE` until Sprint 4 qualification flow); audit `staff.invitation_accepted`. Caregiver account login allowed (used by later sprints). **Closure update (ADR-0009):** acceptance must be requested on the invitation's own server-resolved tenant host; wrong-tenant/platform-host attempts are rejected with generic `UNAUTHENTICATED` without consuming the token or creating an account.
 
-- [ ] **Step 1: Write failing integration tests:** owner creates invite; admin creates; coordinator forbidden; caregiver forbidden; suspended tenant forbidden; **I06** expired invitation accept → refused; consumed reuse → `TOKEN_ALREADY_USED`; invitation from tenant A accepted while Host = tenant A only (token carries its own tenant; accept is host-agnostic public route but binds account to invitation tenant — assert account cannot log in on tenant B host with same credentials, wrong-tenant matrix); CSRF required; outbox row present.
+- [ ] **Step 1: Write failing integration tests:** owner creates invite; admin creates; coordinator forbidden; caregiver forbidden; suspended tenant forbidden; **I06** expired invitation accept → refused; consumed reuse → `TOKEN_ALREADY_USED`; invitation acceptance succeeds only on the invitation tenant's host — wrong-tenant and platform-host attempts are refused generically without consuming the token and a retry on the correct host still succeeds; concurrent same-token and wrong-host-vs-correct-host races keep single-use semantics; account cannot log in on tenant B host with the same credentials (wrong-tenant matrix); CSRF required; outbox row present; service-boundary denial without the HTTP permission gate (coordinator/suspended principal).
 - [ ] **Step 2: Run** → FAIL. **Step 3: Implement.** **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** `feat(staff): invitation issue and accept with tenant-bound accounts`
 

@@ -1,5 +1,77 @@
 # 10 — Raak Brand, Typography and UI/UX Specification
 
+## Approved preview and shared-UI contract
+
+**Owner approval — 2026-11-01:** the current visual preview at
+`/ar/design-preview` and `/en/design-preview`, including its light/dark treatments
+and completed refinements/motion, is the design baseline for subsequent app
+implementation. Preserve its typography hierarchy, generous spacing, control
+treatments, status alignment, centered detail Dialog, themed Selects and subtle
+reduced-motion-aware feedback. Light remains the default. This approval covers
+visual language; each production screen still follows its own workflow,
+permissions and content requirements.
+
+### Authority and source of truth
+
+- Locked product decisions and security/business invariants retain precedence.
+  This section governs reuse and design adoption. For demonstrated visual details,
+  inspect the current preview source and `docs/design/VISUAL_PREVIEW_BRIEF.md`;
+  older measurements or sheet/exploratory-theme descriptions in `DESIGN.md` are
+  historical where they differ from the completed preview.
+- `frontend/app/tokens.css` remains the canonical runtime foundation for brand and
+  typography tokens. During shared-UI promotion, move reusable preview theme,
+  spacing, radius, shadow and motion values into that central token system, with
+  semantic component tokens where necessary. Both themes reference the same
+  semantic token names. Pages consume these tokens rather than copying values.
+- Shared primitives belong in `frontend/components/ui/`; reusable navigation and
+  portal layout compositions belong in `frontend/components/layout/`. These are
+  the target shared locations, not a claim that extraction is already complete.
+  Feature-specific compositions stay with their feature and consume shared UI.
+- The preview/component board and production screens must import the same shared
+  implementations and styles. The board is the living visual reference; static
+  captures and `DESIGN.md` document it rather than becoming parallel implementations.
+
+### Required implementation sequence
+
+1. Before the first production UI slice, inventory the preview's
+   `frontend/app/[locale]/design-preview/_components/` and `preview.css` against
+   existing shared code. Promote the reusable foundations needed by that slice
+   into the shared locations, preserving approved appearance and interactions.
+   This includes extracting inline controls/styles when a wrapper does not yet
+   exist. Keep synthetic records, demo feedback and preview-only orchestration local.
+2. Switch the preview to consume each promoted component in the same slice.
+   Production features import shared UI directly, without importing route-local
+   preview code. Remove the superseded reusable implementation/styles once all
+   affected consumers use the shared version.
+3. Before creating any later UI element, search the shared library and board.
+   Reuse an existing component first; extend it with a coherent variant or
+   composition when necessary. Add a new shared component only for a missing
+   reusable capability, and document its purpose in the slice report. Common
+   buttons, fields, Selects, Dialogs, status badges, tables, feedback states and
+   navigation must not acquire page-local competing implementations.
+4. Keep common appearance in tokens and shared component styles. Pages provide
+   content, data and workflow composition. Change a common treatment centrally so
+   every consumer receives it; use explicit supported variants for real contextual
+   differences rather than scattered overrides or a single all-purpose component.
+5. Update the board when adding shared components, variants or states. Demonstrate
+   applicable hover, focus, disabled, loading, validation, empty and error states,
+   with typed feature translations, Arabic RTL and English LTR support.
+
+### UI slice acceptance
+
+- The slice report names reused, extended or newly shared components and their
+  canonical paths. A new shared component includes the gap that justified it.
+- Shared-UI promotion and changes are checked in both the board and affected
+  screens, in Arabic/English, light/dark and desktop/mobile; verify keyboard/focus,
+  relevant interaction behavior and reduced motion when motion changes.
+- Run frontend lint, typecheck, appropriate component/interaction tests and build;
+  report exact commands/results and any blocked browser checks. A common style
+  change must be verified across affected consumers, not just its original page.
+- Refresh visual documentation when shared implementation changes. Owner approval
+  is required for a redesign of the approved visual baseline. New domain screens
+  compose its patterns without requiring the exceptions-first dashboard layout on
+  every page. Visual approval does not satisfy production workflow release gates.
+
 ## Brand locked
 - Product name: **رعاك | Raak**.
 - Identity: healthcare coordination SaaS, trustworthy, calm, human, enterprise-practical, Arabic-first.

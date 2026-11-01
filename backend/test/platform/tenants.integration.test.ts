@@ -38,6 +38,7 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
   const slug = 'plat-' + Date.now().toString(36);
   let tenantId = '';
   const staffEmail = `coord@${slug}.invalid`;
+  let staffId = '';
   let operatorCookies: { session: string; csrf: string };
   let staffCookies: { session: string; csrf: string };
   let operatorId = '';
@@ -54,6 +55,7 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     const staff = await db.staffAccount.create({
       data: { tenantId, emailNormalized: staffEmail, passwordHash, role: 'CARE_COORDINATOR', status: 'ACTIVE', emailVerifiedAt: new Date() },
     });
+    staffId = staff.id;
     const operator = await db.platformOperator.upsert({
       where: { emailNormalized: 'op@platform-routes.invalid' },
       update: { passwordHash, status: 'ACTIVE' },
@@ -247,5 +249,51 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     for (const entry of res.body.data.items as Array<Record<string, unknown>>) {
       expect(JSON.stringify(entry)).not.toContain('passwordHash');
     }
+  });
+
+  it('service boundary: tenant lifecycle and reads re-deny non-operator principals without the HTTP gate', async () => {
+    const { createPlatformService } = await import('../../src/modules/platform/platform.service');
+    const service = createPlatformService({ db, now: () => new Date() });
+    const staffAuth = {
+      sessionId: '00000000-0000-4000-8000-000000000002',
+      session: {
+        principalId: staffId,
+        sessionVersion: 0,
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        principalType: 'AGENCY_STAFF',
+        tenantId,
+      },
+      realm: { kind: 'AGENCY', tenant: { tenantId, slug, status: 'ACTIVE' } },
+      csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
+      staff: { id: staffId, tenantId, emailNormalized: staffEmail, role: 'AGENCY_ADMIN', status: 'ACTIVE' },
+    } as unknown as import('../../src/modules/auth/guards').AuthState;
+
+    await expect(service.listTenants(staffAuth, {})).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(service.getTenant(staffAuth, tenantId)).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(service.listAudit(staffAuth, {})).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(service.activateTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(service.suspendTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+
+    // The tenant was not mutated by the denied lifecycle attempts.
+    const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+    expect(tenant?.status).toBe('ACTIVE');
+
+    // A real operator principal still passes the service boundary.
+    const operatorAuth = {
+      sessionId: '00000000-0000-4000-8000-000000000003',
+      session: {
+        principalId: operatorId,
+        sessionVersion: 0,
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        principalType: 'PLATFORM_OPERATOR',
+      },
+      realm: { kind: 'PLATFORM' },
+      csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
+      operator: { id: operatorId, emailNormalized: 'op@platform-routes.invalid', status: 'ACTIVE' },
+    } as unknown as import('../../src/modules/auth/guards').AuthState;
+    const listed = await service.listTenants(operatorAuth, { limit: 100 });
+    expect(listed.items.some((item) => item.slug === slug)).toBe(true);
   });
 });

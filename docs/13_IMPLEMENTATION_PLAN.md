@@ -3,6 +3,14 @@
 ## Execution model
 Build **vertical slices** with a deployable app after each slice, rather than completing every model and then every UI. Timebox includes test and error-path validation. Keep scope protected and record technical ADRs when implementation defaults change. Do not let agent invent new features or alter business states casually.
 
+**UI handoff — owner-approved 2026-11-01:** apply the approved-preview and
+shared-UI contract in `10_UI_UX_DESIGN_SYSTEM.md` to every subsequent frontend
+slice. Before the first production UI slice, promote the reusable preview
+foundations it needs and switch the preview to those shared implementations.
+Continue reuse and board verification in each sprint; this is an implementation
+prerequisite within the relevant slice, not a new domain sprint or completion of
+production workflows.
+
 ## Milestones
 | Phase | Objective | Deliverable / gate |
 |---|---|---|
@@ -48,13 +56,20 @@ flowchart LR
 - Tenant creation/status, owner verification, operator activation/suspend.
 - Staff/customer auth realms and invites, session guard, CSRF, tenant host resolver, permission service.
 - Add wrong-tenant tests for all new routes; build Super Admin tenant list.
-- **Exit:** E01 and I01/I05/I06/I15 pass.
+- **Exit:** E01 steps 1–4 (register → verify → pending → activate, at API
+  level), I05, I06 (invitation tokens bound to their tenant host) and I15
+  plus the host/session isolation matrices pass. Full E01 (branding/services
+  → portal visible) is demonstrated in Sprint 2; exact I01 patient/visit/
+  document object-by-ID isolation remains mandatory in the sprints that own
+  those domains (4–6). See ADR-0009.
 
 ### Sprint 2 — Catalog and guest intake
 - Platform service templates, agency-specific service clone/custom, publish/unpublish.
 - Agency logo/primary brand settings, service list/detail, guest request form, verified request link.
 - Locale-aware form validation, guest spam/rate limit; queue states and email receipt.
-- **Exit:** E02 works in AR and EN; guest no account requirement met.
+- **Exit:** E02 works in AR and EN; guest no account requirement met; full
+  E01 (brand/services configuration → portal visible) demonstrated end to
+  end (completes the E01 split recorded in ADR-0009).
 
 ### Sprint 3 — Commercial journey
 - Fixed pricing snapshot and price agreement acknowledgement; quote draft/send/expiry/version/revision.
@@ -87,6 +102,7 @@ flowchart LR
 - Domain invariants and error cases fully implemented and covered by tests; correct status history/audit and outbox on state changes.
 - Tenant scoped DB queries; `authorize()` checked at endpoint and domain resource boundary; synthetic seed no real PHI.
 - API schema/contract updated; UI loading/error/empty/success states and Arabic/English translations present.
+- UI follows the approved baseline and shared-UI acceptance checks in `10_UI_UX_DESIGN_SYSTEM.md`; slice reports identify shared components reused, extended or added.
 - Typecheck/lint/test/build pass; responsive design reviewed; progress notes and ADRs updated.
 - Code review notes include security assumptions, risks, and what was intentionally deferred.
 

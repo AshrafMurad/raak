@@ -462,6 +462,132 @@ describe.skipIf(!hasDatabase)('realm login, logout and me', () => {
   });
 });
 
+describe.skipIf(!hasDatabase)('I05: customer accounts with the same email in two tenants', () => {
+  let db: DatabaseClient;
+  let app: Express;
+  const slugA = 'routes-cust-a-' + Date.now().toString(36);
+  const slugB = 'routes-cust-b-' + Date.now().toString(36);
+  const sharedEmail = 'same.customer@routes.invalid';
+  let tenantAId = '';
+  let tenantBId = '';
+
+  beforeAll(async () => {
+    const passwordHash = await hashPassword(FIXTURE.password);
+    db = getPrisma();
+    app = makeApp();
+    for (const slug of [slugA, slugB]) {
+      const tenant = await db.tenant.create({
+        data: {
+          slug,
+          legalName: `T ${slug}`,
+          displayName: slug,
+          status: 'ACTIVE',
+          timezone: 'Asia/Riyadh',
+          currency: 'SAR',
+          supportEmail: `s@${slug}.invalid`,
+        },
+      });
+      if (slug === slugA) tenantAId = tenant.id;
+      else tenantBId = tenant.id;
+    }
+    // The same customer email exists independently in both tenants (D03/I05).
+    for (const tenantId of [tenantAId, tenantBId]) {
+      await db.customerAccount.create({
+        data: { tenantId, emailNormalized: sharedEmail, passwordHash, status: 'ACTIVE', emailVerifiedAt: new Date() },
+      });
+    }
+  });
+
+  afterAll(async () => {
+    for (const tenantId of [tenantAId, tenantBId]) {
+      if (!tenantId) continue;
+      await db.authSession.deleteMany({ where: { tenantId } });
+      await db.customerAccount.deleteMany({ where: { tenantId } });
+      await db.auditEvent.deleteMany({ where: { tenantId } });
+      await db.tenant.delete({ where: { id: tenantId } });
+    }
+    await disconnectPrisma();
+  });
+
+  function extractCookies(res: request.Response): { session: string; csrf: string } {
+    const setCookies = (res.headers['set-cookie'] ?? []) as unknown as string[];
+    const session = /raak_session_agency=([^;]+)/.exec(setCookies.join('\n'))?.[1];
+    const csrf = /raak_csrf_agency=([^;]+)/.exec(setCookies.join('\n'))?.[1];
+    expect(session).toBeDefined();
+    expect(csrf).toBeDefined();
+    return { session: session!, csrf: csrf! };
+  }
+
+  it('yields two independent customer logins, each bound to its server-resolved tenant', async () => {
+    const loginA = await request(app)
+      .post('/v1/auth/login')
+      .set('Host', `${slugA}.localhost`)
+      .send({ email: sharedEmail, password: FIXTURE.password });
+    expect(loginA.status).toBe(200);
+    expect(loginA.body.data.principalType).toBe('AGENCY_CUSTOMER');
+    expect(loginA.body.data.tenant?.slug).toBe(slugA);
+    const cookiesA = extractCookies(loginA);
+
+    const loginB = await request(app)
+      .post('/v1/auth/login')
+      .set('Host', `${slugB}.localhost`)
+      .send({ email: sharedEmail, password: FIXTURE.password });
+    expect(loginB.status).toBe(200);
+    expect(loginB.body.data.principalType).toBe('AGENCY_CUSTOMER');
+    expect(loginB.body.data.tenant?.slug).toBe(slugB);
+    const cookiesB = extractCookies(loginB);
+    expect(cookiesB.session).not.toBe(cookiesA.session);
+
+    const meA = await request(app)
+      .get('/v1/auth/me')
+      .set('Host', `${slugA}.localhost`)
+      .set('Cookie', `raak_session_agency=${cookiesA.session}`);
+    expect(meA.status).toBe(200);
+    expect(meA.body.data.principalType).toBe('AGENCY_CUSTOMER');
+    expect(meA.body.data.tenant?.slug).toBe(slugA);
+    expect(meA.body.data.tenant?.tenantId).toBe(tenantAId);
+
+    const meB = await request(app)
+      .get('/v1/auth/me')
+      .set('Host', `${slugB}.localhost`)
+      .set('Cookie', `raak_session_agency=${cookiesB.session}`);
+    expect(meB.status).toBe(200);
+    expect(meB.body.data.tenant?.tenantId).toBe(tenantBId);
+  });
+
+  it('denies each customer session on the other tenant host and on the platform host', async () => {
+    const loginA = await request(app)
+      .post('/v1/auth/login')
+      .set('Host', `${slugA}.localhost`)
+      .send({ email: sharedEmail, password: FIXTURE.password });
+    expect(loginA.status).toBe(200);
+    const cookiesA = extractCookies(loginA);
+
+    const onB = await request(app)
+      .get('/v1/auth/me')
+      .set('Host', `${slugB}.localhost`)
+      .set('Cookie', `raak_session_agency=${cookiesA.session}`);
+    expect(onB.status).toBe(401);
+    expect(onB.body.error.code).toBe('UNAUTHENTICATED');
+
+    const onPlatform = await request(app)
+      .get('/v1/auth/me')
+      .set('Host', 'platform.localhost')
+      .set('Cookie', `raak_session_agency=${cookiesA.session}`);
+    expect(onPlatform.status).toBe(401);
+    expect(onPlatform.body.error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('refuses customer credentials on the platform host (no shared customer realm)', async () => {
+    const res = await request(app)
+      .post('/v1/auth/login')
+      .set('Host', 'platform.localhost')
+      .send({ email: sharedEmail, password: FIXTURE.password });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHENTICATED');
+  });
+});
+
 describe.skipIf(!hasDatabase)('password reset', () => {
   let db: DatabaseClient;
   let app: Express;

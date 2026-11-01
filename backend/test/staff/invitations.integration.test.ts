@@ -1,7 +1,8 @@
 /**
  * Integration: staff invitations (docs 05 registration/invitation; docs 07).
  * Owner/Admin only, tenant ACTIVE, hashed single-use token, 48h expiry,
- * account bound to the invitation's tenant (I06 + wrong-tenant matrix).
+ * account bound to the invitation's tenant, acceptance only on the
+ * invitation's own tenant host (I06 + wrong-tenant matrix).
  */
 import type { Express } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -153,7 +154,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const token = await latestInvitationToken(`nurse1@${slugA}.invalid`);
     const accept = await request(app)
       .post('/v1/staff/invitations/accept')
-      .set('Host', 'platform.localhost')
+      .set('Host', `${slugA}.localhost`)
       .send({ token, password: 'Invited-Pass-1!' });
     expect(accept.status).toBe(200);
 
@@ -186,7 +187,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const token = await latestInvitationToken(`nurse1@${slugA}.invalid`);
     const res = await request(app)
       .post('/v1/staff/invitations/accept')
-      .set('Host', 'platform.localhost')
+      .set('Host', `${slugA}.localhost`)
       .send({ token, password: 'Other-Pass-2!' });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('TOKEN_ALREADY_USED');
@@ -207,7 +208,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     });
     const res = await request(app)
       .post('/v1/staff/invitations/accept')
-      .set('Host', 'platform.localhost')
+      .set('Host', `${slugA}.localhost`)
       .send({ token: gen.token, password: 'Whatever-9!' });
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('TOKEN_EXPIRED');
@@ -232,7 +233,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const boundaryApp = makeApp(() => (nowCalls++ === 0 ? beforeExpiry : afterExpiry));
     const response = await request(boundaryApp)
       .post('/v1/staff/invitations/accept')
-      .set('Host', 'platform.localhost')
+      .set('Host', `${slugA}.localhost`)
       .send({ token: generated.token, password: 'Boundary-Pass-1!' });
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('TOKEN_EXPIRED');
@@ -264,7 +265,7 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
       acceptance = Promise.resolve(
         request(app)
           .post('/v1/staff/invitations/accept')
-          .set('Host', 'platform.localhost')
+          .set('Host', `${slugA}.localhost`)
           .send({ token, password: 'Suspended-Pass-1!' }),
       );
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -289,10 +290,130 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const tokens = events.map((event) => ((event.payloadMinimal as { link: string }).link.match(/token=([A-Za-z0-9_-]+)/)![1]!));
     const responses = await Promise.all(tokens.map((token) => request(app)
       .post('/v1/staff/invitations/accept')
-      .set('Host', 'platform.localhost')
+      .set('Host', `${slugA}.localhost`)
       .send({ token, password: 'Duplicate-Pass-1!' })));
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
     expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('STATE_TRANSITION_INVALID');
+  });
+
+  it('I06: refuses acceptance on the wrong tenant host without consuming the token, then succeeds on the invitation host', async () => {
+    const email = `hostbound@${slugA}.invalid`;
+    const issued = await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
+    expect(issued.status).toBe(201);
+    const token = await latestInvitationToken(email);
+
+    const onWrongTenant = await request(app)
+      .post('/v1/staff/invitations/accept')
+      .set('Host', `${slugB}.localhost`)
+      .send({ token, password: 'Wrong-Host-1!' });
+    expect(onWrongTenant.status).toBe(401);
+    expect(onWrongTenant.body.error.code).toBe('UNAUTHENTICATED');
+
+    const onPlatform = await request(app)
+      .post('/v1/staff/invitations/accept')
+      .set('Host', 'platform.localhost')
+      .send({ token, password: 'Wrong-Host-1!' });
+    expect(onPlatform.status).toBe(401);
+    expect(onPlatform.body.error.code).toBe('UNAUTHENTICATED');
+    // Identical generic message: no hint which tenant the token belongs to.
+    expect(onPlatform.body.error.message).toBe(onWrongTenant.body.error.message);
+
+    const { hashToken } = await import('../../src/modules/auth/crypto');
+    const invitation = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(token) } });
+    expect(invitation?.consumedAt).toBeNull();
+    const account = await db.staffAccount.findUnique({
+      where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: email } },
+    });
+    expect(account).toBeNull();
+
+    // Successful retry on the correct (invitation) host still works.
+    const retry = await request(app)
+      .post('/v1/staff/invitations/accept')
+      .set('Host', `${slugA}.localhost`)
+      .send({ token, password: 'Right-Host-1!' });
+    expect(retry.status).toBe(200);
+    const acceptedAccount = await db.staffAccount.findUnique({
+      where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: email } },
+    });
+    expect(acceptedAccount?.status).toBe('ACTIVE');
+  });
+
+  it('I06: concurrent same-token acceptance on the correct host consumes exactly once', async () => {
+    const email = `race-token@${slugA}.invalid`;
+    await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
+    const token = await latestInvitationToken(email);
+    const responses = await Promise.all([
+      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Pass-1!' }),
+      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Pass-1!' }),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TOKEN_ALREADY_USED');
+  });
+
+  it('I06: a wrong-host attempt racing a correct-host acceptance never consumes the token', async () => {
+    const email = `race-host@${slugA}.invalid`;
+    await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
+    const token = await latestInvitationToken(email);
+    const responses = await Promise.all([
+      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugB}.localhost`).send({ token, password: 'Race-Host-1!' }),
+      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Host-1!' }),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 401]);
+    expect(responses.find((response) => response.status === 401)?.body.error.code).toBe('UNAUTHENTICATED');
+    const account = await db.staffAccount.findUnique({
+      where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: email } },
+    });
+    expect(account?.status).toBe('ACTIVE');
+  });
+
+  it('service boundary: createInvitation re-denies non-owner/admin principals without the HTTP gate', async () => {
+    const { createStaffService } = await import('../../src/modules/staff/staff.service');
+    const service = createStaffService({
+      db,
+      now: () => new Date(),
+      buildLink: (kind, token, context) => `http://${context.slug}.localhost/ar/accept-invitation#token=${token}`,
+    });
+    const coordinatorAuth = {
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      session: {
+        principalId: ids.coord!,
+        sessionVersion: 0,
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        principalType: 'AGENCY_STAFF',
+        tenantId: ids.tenantA!,
+      },
+      realm: { kind: 'AGENCY', tenant: { tenantId: ids.tenantA!, slug: slugA, status: 'ACTIVE' } },
+      csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
+      staff: { id: ids.coord!, tenantId: ids.tenantA!, emailNormalized: `coord@${slugA}.invalid`, role: 'CARE_COORDINATOR', status: 'ACTIVE' },
+    } as unknown as import('../../src/modules/auth/guards').AuthState;
+
+    await expect(
+      service.createInvitation(coordinatorAuth, { email: `svc-denied@${slugA}.invalid`, role: 'CAREGIVER' }),
+    ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+
+    const suspendedAuth = {
+      sessionId: '00000000-0000-4000-8000-000000000004',
+      session: {
+        principalId: ids.coord!,
+        sessionVersion: 0,
+        issuedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        principalType: 'AGENCY_STAFF',
+        tenantId: ids.tenantA!,
+      },
+      realm: { kind: 'AGENCY', tenant: { tenantId: ids.tenantA!, slug: slugA, status: 'SUSPENDED' } },
+      csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
+      staff: { id: ids.coord!, tenantId: ids.tenantA!, emailNormalized: `coord@${slugA}.invalid`, role: 'AGENCY_ADMIN', status: 'ACTIVE' },
+    } as unknown as import('../../src/modules/auth/guards').AuthState;
+    await expect(
+      service.createInvitation(suspendedAuth, { email: `svc-suspended@${slugA}.invalid`, role: 'CAREGIVER' }),
+    ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+
+    const invitationCount = await db.staffInvitation.count({
+      where: { emailNormalized: { in: [`svc-denied@${slugA}.invalid`, `svc-suspended@${slugA}.invalid`] } },
+    });
+    expect(invitationCount).toBe(0);
   });
 
   it('a suspended tenant kills its sessions: invitation creation becomes unauthenticated (I15 adjacency)', async () => {
