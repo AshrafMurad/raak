@@ -24,7 +24,7 @@ You are implementing **Raak (رعاك)**, a multi-tenant home-care operations Sa
 
 ## Non-negotiable execution rules
 - Implement *one sprint at a time*. Never expand scope unrequested. Don't redesign locked decisions or overwrite user-selected colors/fonts/name.
-- **Slow internet (owner constraint):** any command expected to download more than ~50 MB (docker pull/compose pull, large npm installs from scratch, container image builds) must be handed to the product owner as an exact copy-pasteable command instead of executed by the agent in the shell. The agent runs only small/ incremental downloads (e.g. a few small packages, lockfile-resolved additions). Document which commands were delegated.
+- **Slow internet (owner constraint):** before any install/download, estimate the total transfer, including transitive packages and postinstall assets. Commands expected to download more than ~50 MB, or whose size cannot be bounded below that threshold, must be handed to the owner as exact copy-pasteable commands with the working directory and purpose. This includes browser binaries (`playwright install`), Docker images/build downloads, fresh dependency installs, models and large assets. Run only known-small incremental downloads. Prefer installed Chrome/Edge for browser checks; installing the Playwright npm package and downloading its browsers are separate steps. Once the owner takes over an install, wait for confirmation before retrying it. Record delegated commands and verification blocked on them.
 - Use TypeScript strict mode; typed DTO validation; Prisma migrations; secure sessions and protected API operations. Never silently fabricate success for failed tasks.
 - Every agency query/mutation/filter/worker event/document access is scoped to server-resolved tenant, principal and resource. Do not trust client-supplied tenantId. Deny by default.
 - Preserve state-machine invariants, quote version history and care-plan snapshot history; completed visit notes are append-only after completion.
@@ -50,6 +50,7 @@ You are implementing **Raak (رعاك)**, a multi-tenant home-care operations Sa
 4. Report: implemented, not implemented, key files, tests run, risks and next sprint steps.
 
 ## Code organization guidelines
+- **Frontend UI:** before creating or changing screens, components, styles or themes, read and follow the approved-preview and shared-UI contract in `docs/10_UI_UX_DESIGN_SYSTEM.md`. Reuse shared UI first; promote preview primitives into the shared library before production use, and make the preview consume that same library.
 - Use the root Git repository containing self-contained `backend/` (Node.js/Express + worker) and `frontend/` (Next.js) npm projects per ADR-0007.
 - `backend/src/modules/<domain>/` contains controller (transport), schema, service (business), repository/query (DB), tests.
 - One `authorize` policy gate, plus business-object checks; avoid role-only authorization scattered through controllers.

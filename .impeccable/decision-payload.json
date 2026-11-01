@@ -1,0 +1,120 @@
+{
+  "title": "Choose Raak's visual world",
+  "question": "The roll assigned The Care Diagram. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "مخطط الرعاية · The Care Diagram",
+      "kicker": "THE ROLL",
+      "lineage": "metropolitan transit diagrams and hospital wayfinding — Riyadh Metro, Dubai Metro, clinic signage",
+      "thesis": "The agency's day as a transit diagram: caregivers are route lines, visits are stations, assignments are traced routes. Travel buffers, gaps, and visit states read the way a city's movement reads — the product's core mechanism (conflict-free scheduling across a city of homes) becomes the interface itself.",
+      "palette": ["#243B70", "#7485CF", "#F8F9FD", "#202A40", "#315DA3", "#23856A", "#A96A16", "#C44650"],
+      "materials": ["paper-white diagram ground (light-first translation of enamel signage)", "disciplined route lines at 45/90° only", "station-tick visit nodes", "service-alert exception rail"],
+      "viewport": "The dashboard opens on the day's corridor: a horizontal day-timeline where each caregiver is a quiet colored route, visits are station nodes with state ticks (planned hollow, scheduled filled, in-progress pulsing ring, completed struck), travel buffers visible as connecting segments; unassigned visits wait in a service-alerts rail on the side. Assignment is literally tracing a route; a conflict is two lines claiming one segment — visible before it happens.",
+      "risk": "Systematic precision can read cold. The Attio-grade warmth must come from the paper-white ground, generous air between routes, tabular-numeral calm, and human annotation marks — without them it's a network-monitor dashboard, not care.",
+      "raised": [
+        { "from": "challenger-midnight-transit", "raise": "Full diagram grammar folded in: routes bend only at 45°/90°, interchanges (shared patients, back-to-back visits) bloom as circles, corridor focus keeps transfer context visible while a caregiver's day is examined." },
+        { "from": "challenger-ikeda-datamatics", "raise": "Tabular numerals at true data density are the only ornament — timestamps, durations and counts carry the visual interest; no decoration beside the data." },
+        { "from": "challenger-cassette-j-card", "raise": "The day's capacity is a visible physical quantity — a coordinator sees when a caregiver's side of the tape is full before accepting another visit." },
+        { "from": "challenger-doujin-catalog", "raise": "Selection and completion feel annotated by a person — a circled row, a struck-through completed visit — states with a hand-kept soul." },
+        { "from": "challenger-saville-catalog", "raise": "One live thing carries the color weight at a time — the visit being resolved now; the rest of the surface stays quiet." },
+        { "from": "challenger-metro-typographic-tiles", "raise": "Active states flood a soft tinted field instead of adding another outline — selection is a filled zone, not a border." }
+      ],
+      "wireframe": "┌─اللوحة─┐┌ صباح الأحد ١٢ أكتوبر ── توقيت الرياض ＋ زيارة ┐\n│ لوحة  ││ ❯ غير مُسندة ٣   متأخرة ١   اليوم ١٤ منجزة ٦    │\n│ الطلبات││                                                  │\n│ الزيارات││ سارة ────●────●╌╌┄┄●────●───  (فراغ = تنقّل)     │\n│ المرضى ││ نورة ╶──●────●─────────●──╴                    │\n│ المقدمون││ ليلى ╶╌╌╌╌ (غير متاحة حتى ٢)                   │\n│ …      ││ ⚠ خدمة: زيارة غير مُسندة ٤ م — الرياض، النرجس    │\n└────────┘└──────────────────────────────────────────────────┘"
+    },
+    {
+      "id": "model-pick",
+      "label": "دفتر العمليات · The Operations Ledger",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Arabic business ledgers (دفتر السجلات) — right-bound ruled registers, stamped headers, tabular columns",
+      "thesis": "The workspace as the agency's living register: every table a ruled register page, every state a stamp or marginal mark. Records carry the authority of the ledger books Arabic offices have trusted for a century — warm, exact, human-kept.",
+      "palette": ["#243B70", "#F8F9FD", "#202A40", "#647086", "#7485CF", "#23856A", "#A96A16", "#C44650"],
+      "materials": ["warm paper-toned ground", "ruled columns with fine inked lines", "stamp-like status chips", "marginal annotations in the accent ink"],
+      "viewport": "The dashboard opens as a spread of the day's register: today's visits ruled across the page in tabular numerals, states as small stamps (مؤكدة، قيد التنفيذ، منجزة), the margin holding what needs a human — unassigned flags and late notes in lavender annotation ink, like a supervisor's pen.",
+      "risk": "The direction closest to the quiet-table SaaS this category already ships — Attio/Notion adjacent, exactly the bar you chose. Familiar and effective is a legitimate destination; but without deep commitment to paper tone, ruling rhythm and mark-making, it reads as generic calm admin.",
+      "wireframe": "┌─دفتر اليوم─┐┌ سجل الزيارات — الأحد ١٢ أكتوبر ────────┐\n│ لوحة     ││ المريض   │ المقدّم  │ النافذة  │ الحالة │\n│ السجلات  ││ ────────┼─────────┼─────────┼─────── │\n│ الزيارات ││ أ. محمد  │ سارة    │ ٨–١٠    │[منجزة]│\n│ المقدمون ││ م. نورة  │ ⌾ غير مُسند │ ٩–١١ │[تخطيط]│\n│ …        ││ س. فهد   │ ليلى    │ ١١–١٣   │[مؤكدة]│\n└──────────┘└ الهامش: ⚠ زيارتان بلا مقدّم — مراجعة الآن ──┘"
+    },
+    {
+      "id": "challenger-midnight-transit",
+      "label": "Midnight Transit Diagram",
+      "verdict": "wins",
+      "lineage": "wayfinding-cartography-signage-midnight-transit-diagram",
+      "thesis": "The network as an enamel mural: colored lines on midnight ground, interchanges blooming at crossings.",
+      "palette": ["#1c2a4a", "#e03131", "#1971c2", "#f08c00", "#2f9e44", "#ffffff"],
+      "materials": ["midnight-blue enamel", "porcelain station ticks", "five line inks"],
+      "viewport": "The whole city of care as one legible diagram of movement.",
+      "case": "Fused so completely with the assigned direction that it merged into the lead card as its grammar — 45/90° bends, interchange circles, corridor focus, service states (open, delayed, suspended → planned, late, cancelled). Locked here only as the proof of fusion; choosing the lead card is choosing this world, translated to Raak's locked light-first palette.",
+      "risk": "Its midnight enamel ground contradicts the locked light-first palette — the lead card is its faithful light translation.",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-midnight-transit-diagram-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-midnight-transit-diagram.webp"
+    },
+    {
+      "id": "challenger-metro-typographic-tiles",
+      "label": "Metro Typographic Tiles",
+      "verdict": "declined",
+      "lineage": "digital-design-canon-metro-typographic-tiles",
+      "palette": ["#000000", "#00c0c0", "#ffffff"],
+      "materials": ["flat tiles", "giant cropped lowercase"],
+      "case": "Fuses poorly: giant cropped headlines and tile-only navigation cannot carry 14px dense bilingual tables all day.",
+      "kept": "Type-led states — selection floods a tinted field instead of adding outlines.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-metro-typographic-tiles-hero.webp"
+    },
+    {
+      "id": "challenger-cassette-j-card",
+      "label": "Mixtape J-Card",
+      "verdict": "declined",
+      "lineage": "vernacular-ephemera-cassette-j-card",
+      "palette": ["#1a3a8f", "#f5f0e1", "#c03030"],
+      "materials": ["ballpoint on ruled inlay stock", "folded sheet"],
+      "case": "Fuses poorly for an operate surface: hard physical halves and handwriting fight mutable queues and precise tabular states.",
+      "kept": "Sides with visible capacity — a caregiver's day shows when it is full.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-cassette-j-card-hero.webp"
+    },
+    {
+      "id": "challenger-doujin-catalog",
+      "label": "Convention Circle Catalog",
+      "verdict": "declined",
+      "lineage": "pop-culture-shelf-doujin-event-catalog",
+      "palette": ["#1a1a1a", "#e8e4da", "#c0392b"],
+      "materials": ["newsprint grid", "pen-circled selections"],
+      "case": "Holds browse, loses operate: a stamp-thumbnail grid is for discovering among thousands, not running a day of twenty caregivers; newsprint gray fights crisp locked tables.",
+      "kept": "Human mark-making on state — circled selection, struck-through completion.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-doujin-event-catalog-hero.webp"
+    },
+    {
+      "id": "challenger-saville-catalog",
+      "label": "Factory Catalog Sleeve",
+      "verdict": "declined",
+      "lineage": "brand-identity-canon-saville-catalog-sleeve",
+      "palette": ["#0a0a0a", "#ffffff", "#c0c0c0"],
+      "materials": ["matte black sleeve", "coded color strips"],
+      "case": "Fuses against product law: labels encoded as color strips alone violate the locked 'label plus tint, never hue alone' status rule; matte black fights light-first.",
+      "kept": "One live thing in full color at a time — the rest of the surface quiet.",
+      "hero": "https://impeccable.style/worlds/cards/brand-identity-canon-saville-catalog-sleeve-hero.webp"
+    },
+    {
+      "id": "challenger-ikeda-datamatics",
+      "label": "Data-Sublime Lattice",
+      "verdict": "declined",
+      "lineage": "ikeda-datamatics",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["barcode fields", "sine lattices", "pure B/W strobe"],
+      "case": "Hostile to an all-day accessibility-gated workspace: strobing inversion and data-sublime coldness are wrong for coordinators and reduced-motion rules; audience identification near zero.",
+      "kept": "Data density as the only ornament — tabular numerals carry the visual interest.",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "The generic admin SaaS — sidebar, KPI cards, data table — executed impeccably. This is the Linear-adjacent door, played straight.",
+    "palette": ["#ffffff", "#111827", "#2563eb"],
+    "materials": ["clean grid", "crisp tables", "no world"],
+    "viewport": "The arrangement every ops tool ships, at full craft.",
+    "risk": "Indistinguishable from the competition by design."
+  },
+  "steer": true
+}

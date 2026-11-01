@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T00:00:00Z",
+  "title": "Design System: Raak | رعاك",
+  "extensions": {
+    "themeSupport": {
+      "status": "Owner-requested dark exploration before final visual approval; light-first remains the default.",
+      "source": "frontend/app/[locale]/design-preview/preview.css",
+      "selector": ".rv-root[data-theme='dark']",
+      "tokens": "DESIGN.md colors.preview-dark-* record the current scoped values; locked raak-* brand primitives stay intact.",
+      "behavior": "The theme query is server-resolved, updated by the accessible header toggle, and retained on refresh and locale navigation. Portalled detail sheets receive the theme explicitly. No browser storage or account preference is used.",
+      "specimens": "Existing framework-free component snippets represent the light base. The interactive preview renders both themes through semantic overrides.",
+      "evidence": "Eight Arabic/English x 1440/390 x light/dark browser combinations and 32 Vitest tests passed. Sampled enabled board control/status/help text reached at least 4.5:1. No comprehensive accessibility certification is implied."
+    },
+    "colorMeta": {
+      "raak-brand-primary": {
+        "role": "primary",
+        "displayName": "Midnight blue",
+        "tonalRamp": [
+          "oklch(from var(--raak-brand-primary) 15% c h)",
+          "oklch(from var(--raak-brand-primary) 26% c h)",
+          "oklch(from var(--raak-brand-primary) 38% c h)",
+          "oklch(from var(--raak-brand-primary) 49% c h)",
+          "oklch(from var(--raak-brand-primary) 61% c h)",
+          "oklch(from var(--raak-brand-primary) 72% c h)",
+          "oklch(from var(--raak-brand-primary) 84% c h)",
+          "oklch(from var(--raak-brand-primary) 95% c h)"
+        ]
+      },
+      "raak-brand-primary-hover": {
+        "role": "primary",
+        "displayName": "Midnight blue hover",
+        "tonalRamp": [
+          "oklch(from var(--raak-brand-primary-hover) 15% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 26% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 38% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 49% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 61% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 72% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 84% c h)",
+          "oklch(from var(--raak-brand-primary-hover) 95% c h)"
+        ]
+      },
+      "raak-brand-primary-subtle": {
+        "role": "primary",
+        "displayName": "Pale primary selection",
+        "tonalRamp": [
+          "oklch(from var(--raak-brand-primary-subtle) 15% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 26% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 38% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 49% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 61% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 72% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 84% c h)",
+          "oklch(from var(--raak-brand-primary-subtle) 95% c h)"
+        ]
+      },
+      "raak-brand-accent": {
+        "role": "secondary",
+        "displayName": "Lavender",
+        "tonalRamp": [
+          "oklch(from var(--raak-brand-accent) 15% c h)",
+          "oklch(from var(--raak-brand-accent) 26% c h)",
+          "oklch(from var(--raak-brand-accent) 38% c h)",
+          "oklch(from var(--raak-brand-accent) 49% c h)",
+          "oklch(from var(--raak-brand-accent) 61% c h)",
+          "oklch(from var(--raak-brand-accent) 72% c h)",
+          "oklch(from var(--raak-brand-accent) 84% c h)",
+          "oklch(from var(--raak-brand-accent) 95% c h)"
+        ]
+      },
+      "raak-brand-accent-subtle": {
+        "role": "secondary",
+        "displayName": "Soft lavender",
+        "tonalRamp": [
+          "oklch(from var(--raak-brand-accent-subtle) 15% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 26% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 38% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 49% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 61% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 72% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 84% c h)",
+          "oklch(from var(--raak-brand-accent-subtle) 95% c h)"
+        ]
+      },
+      "raak-app-background": {
+        "role": "neutral",
+        "displayName": "Cool canvas",
+        "tonalRamp": [
+          "oklch(from var(--raak-app-background) 15% c h)",
+          "oklch(from var(--raak-app-background) 26% c h)",
+          "oklch(from var(--raak-app-background) 38% c h)",
+          "oklch(from var(--raak-app-background) 49% c h)",
+          "oklch(from var(--raak-app-background) 61% c h)",
+          "oklch(from var(--raak-app-background) 72% c h)",
+          "oklch(from var(--raak-app-background) 84% c h)",
+          "oklch(from var(--raak-app-background) 95% c h)"
+        ]
+      },
+      "raak-surface-default": {
+        "role": "neutral",
+        "displayName": "White surface",
+        "tonalRamp": [
+          "oklch(from var(--raak-surface-default) 15% c h)",
+          "oklch(from var(--raak-surface-default) 26% c h)",
+          "oklch(from var(--raak-surface-default) 38% c h)",
+          "oklch(from var(--raak-surface-default) 49% c h)",
+          "oklch(from var(--raak-surface-default) 61% c h)",
+          "oklch(from var(--raak-surface-default) 72% c h)",
+          "oklch(from var(--raak-surface-default) 84% c h)",
+          "oklch(from var(--raak-surface-default) 95% c h)"
+        ]
+      },
+      "raak-border-default": {
+        "role": "neutral",
+        "displayName": "Blue-gray separator",
+        "tonalRamp": [
+          "oklch(from var(--raak-border-default) 15% c h)",
+          "oklch(from var(--raak-border-default) 26% c h)",
+          "oklch(from var(--raak-border-default) 38% c h)",
+          "oklch(from var(--raak-border-default) 49% c h)",
+          "oklch(from var(--raak-border-default) 61% c h)",
+          "oklch(from var(--raak-border-default) 72% c h)",
+          "oklch(from var(--raak-border-default) 84% c h)",
+          "oklch(from var(--raak-border-default) 95% c h)"
+        ]
+      },
+      "raak-text-primary": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(from var(--raak-text-primary) 15% c h)",
+          "oklch(from var(--raak-text-primary) 26% c h)",
+          "oklch(from var(--raak-text-primary) 38% c h)",
+          "oklch(from var(--raak-text-primary) 49% c h)",
+          "oklch(from var(--raak-text-primary) 61% c h)",
+          "oklch(from var(--raak-text-primary) 72% c h)",
+          "oklch(from var(--raak-text-primary) 84% c h)",
+          "oklch(from var(--raak-text-primary) 95% c h)"
+        ]
+      },
+      "raak-text-secondary": {
+        "role": "neutral",
+        "displayName": "Muted ink",
+        "tonalRamp": [
+          "oklch(from var(--raak-text-secondary) 15% c h)",
+          "oklch(from var(--raak-text-secondary) 26% c h)",
+          "oklch(from var(--raak-text-secondary) 38% c h)",
+          "oklch(from var(--raak-text-secondary) 49% c h)",
+          "oklch(from var(--raak-text-secondary) 61% c h)",
+          "oklch(from var(--raak-text-secondary) 72% c h)",
+          "oklch(from var(--raak-text-secondary) 84% c h)",
+          "oklch(from var(--raak-text-secondary) 95% c h)"
+        ]
+      },
+      "raak-status-success": {
+        "role": "semantic",
+        "displayName": "Success",
+        "tonalRamp": [
+          "oklch(from var(--raak-status-success) 15% c h)",
+          "oklch(from var(--raak-status-success) 26% c h)",
+          "oklch(from var(--raak-status-success) 38% c h)",
+          "oklch(from var(--raak-status-success) 49% c h)",
+          "oklch(from var(--raak-status-success) 61% c h)",
+          "oklch(from var(--raak-status-success) 72% c h)",
+          "oklch(from var(--raak-status-success) 84% c h)",
+          "oklch(from var(--raak-status-success) 95% c h)"
+        ]
+      },
+      "raak-status-warning": {
+        "role": "semantic",
+        "displayName": "Warning",
+        "tonalRamp": [
+          "oklch(from var(--raak-status-warning) 15% c h)",
+          "oklch(from var(--raak-status-warning) 26% c h)",
+          "oklch(from var(--raak-status-warning) 38% c h)",
+          "oklch(from var(--raak-status-warning) 49% c h)",
+          "oklch(from var(--raak-status-warning) 61% c h)",
+          "oklch(from var(--raak-status-warning) 72% c h)",
+          "oklch(from var(--raak-status-warning) 84% c h)",
+          "oklch(from var(--raak-status-warning) 95% c h)"
+        ]
+      },
+      "raak-status-danger": {
+        "role": "semantic",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(from var(--raak-status-danger) 15% c h)",
+          "oklch(from var(--raak-status-danger) 26% c h)",
+          "oklch(from var(--raak-status-danger) 38% c h)",
+          "oklch(from var(--raak-status-danger) 49% c h)",
+          "oklch(from var(--raak-status-danger) 61% c h)",
+          "oklch(from var(--raak-status-danger) 72% c h)",
+          "oklch(from var(--raak-status-danger) 84% c h)",
+          "oklch(from var(--raak-status-danger) 95% c h)"
+        ]
+      },
+      "raak-status-info": {
+        "role": "semantic",
+        "displayName": "Information",
+        "tonalRamp": [
+          "oklch(from var(--raak-status-info) 15% c h)",
+          "oklch(from var(--raak-status-info) 26% c h)",
+          "oklch(from var(--raak-status-info) 38% c h)",
+          "oklch(from var(--raak-status-info) 49% c h)",
+          "oklch(from var(--raak-status-info) 61% c h)",
+          "oklch(from var(--raak-status-info) 72% c h)",
+          "oklch(from var(--raak-status-info) 84% c h)",
+          "oklch(from var(--raak-status-info) 95% c h)"
+        ]
+      },
+      "raak-status-neutral": {
+        "role": "semantic",
+        "displayName": "Neutral status",
+        "tonalRamp": [
+          "oklch(from var(--raak-status-neutral) 15% c h)",
+          "oklch(from var(--raak-status-neutral) 26% c h)",
+          "oklch(from var(--raak-status-neutral) 38% c h)",
+          "oklch(from var(--raak-status-neutral) 49% c h)",
+          "oklch(from var(--raak-status-neutral) 61% c h)",
+          "oklch(from var(--raak-status-neutral) 72% c h)",
+          "oklch(from var(--raak-status-neutral) 84% c h)",
+          "oklch(from var(--raak-status-neutral) 95% c h)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "raak-font-arabic": {
+        "displayName": "Arabic stack",
+        "purpose": "Arabic-first surfaces; preserve the source fallback order."
+      },
+      "raak-font-latin": {
+        "displayName": "Latin stack",
+        "purpose": "English surfaces; preserve the source fallback order."
+      },
+      "page-title": {
+        "displayName": "Preview page heading",
+        "purpose": "Built heading rule, not the planned weight-700 role."
+      },
+      "page-title-mobile": {
+        "displayName": "Narrow page heading",
+        "purpose": "Preview heading at max-width 620px."
+      },
+      "section-title": {
+        "displayName": "Workspace section heading",
+        "purpose": "Built section rule, not the planned major-section size."
+      },
+      "body": {
+        "displayName": "Preview body",
+        "purpose": "Preview root; differs from the general Arabic body line height."
+      },
+      "label": {
+        "displayName": "Field label",
+        "purpose": "Visible component-board field labels; not all metadata."
+      },
+      "table-header": {
+        "displayName": "Table heading",
+        "purpose": "Built weight-500 column headings."
+      },
+      "stat-value": {
+        "displayName": "Daily summary value",
+        "purpose": "Tabular numerals; mobile size reduces to 26px."
+      }
+    },
+    "shadows": [
+      {
+        "name": "raak-shadow-subtle",
+        "value": "0 1px 2px rgba(32, 42, 64, 0.06), 0 1px 3px rgba(32, 42, 64, 0.08)",
+        "purpose": "Shared token exists; not applied to resting preview feedback containers."
+      },
+      {
+        "name": "rv-shadow-overlay",
+        "value": "0 12px 48px rgb(32 42 64 / 12%)",
+        "purpose": "Logical-end detail sheet only; backdrop is rgb(32 42 64 / 18%)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "preview-control-transition",
+        "value": "130ms ease-out",
+        "purpose": "Button background/border and navigation background/text changes."
+      },
+      {
+        "name": "preview-toggle-transition",
+        "value": "140ms ease-out",
+        "purpose": "Logical inline-position change of the toggle thumb."
+      },
+      {
+        "name": "preview-sheet-entry",
+        "value": "180ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Opacity 0.5 to 1, 12px translation toward rest, direction-aware."
+      },
+      {
+        "name": "preview-loading-spin",
+        "value": "1.2s linear infinite",
+        "purpose": "Loading icon rotation; reduced motion removes animations and transitions."
+      }
+    ],
+    "breakpoints": [
+      { "name": "preview-narrow", "value": "(max-width: 620px)" },
+      {
+        "name": "preview-disclosure-navigation",
+        "value": "(max-width: 950px)"
+      },
+      { "name": "preview-compact-desktop", "value": "(max-width: 1200px)" },
+      { "name": "preview-wide", "value": "(min-width: 1600px)" }
+    ],
+    "provenance": {
+      "sources": [
+        "PRODUCT.md",
+        "docs/design/VISUAL_PREVIEW_BRIEF.md",
+        "docs/10_UI_UX_DESIGN_SYSTEM.md",
+        "frontend/app/tokens.css",
+        "frontend/app/globals.css",
+        "frontend/app/[locale]/design-preview/preview.css",
+        "frontend/app/[locale]/design-preview/_components/button.tsx",
+        "frontend/app/[locale]/design-preview/_components/status.tsx",
+        "frontend/app/[locale]/design-preview/_components/design-preview.tsx",
+        "frontend/app/[locale]/design-preview/_components/component-board.tsx"
+      ],
+      "authority": "Root DESIGN.md frontmatter owns primitives. CSS outranks planned values for this demonstrated preview. Sidecar snippets translate observed appearance; they do not define a second palette.",
+      "scope": "Synthetic visual-system preview at /ar/design-preview and /en/design-preview alongside Sprint 1. Components remain preview-scoped, not a shared production library.",
+      "tonalRamps": "Generated relative OKLCH swatch metadata: eight lightness steps, fixed source chroma/hue, dark to light. Not approved palette tokens or component colors.",
+      "snippets": "Framework-free visual specimens with root-token references and locked literal fallbacks. No font downloads, image assets, external icon runtime, business mutations or modal behavior. Native hover/focus/disabled states are retained where meaningful; no invented pressed styling.",
+      "review": "Independent fresh finish review: SHIP; all 12 validated captures under .impeccable/review reviewed; Arabic/English at 1440px/390px browser combinations and 31 Vitest tests pass; no material fixes. Documentation pass inspected source and capture inventory only, with no browser/test rerun. No production-readiness, accessibility or compliance certification.",
+      "deferredObservations": "Mobile table scroll discoverability and the detail date row's formatted-date field label beside an ISO date remain optional observations, not design rules."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Quiet primary action; synthetic specimen with no mutation.",
+      "html": "<button class=\"ds-primary\" type=\"button\">Inspect example</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 15px;border:1px solid transparent;border-radius:var(--raak-radius-control,10px);background:var(--raak-brand-primary,#243B70);color:var(--raak-surface-default,#FFFFFF);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:14px;font-weight:500;line-height:1.7;white-space:nowrap;cursor:pointer;touch-action:manipulation;transition:background-color 130ms ease-out,border-color 130ms ease-out}.ds-primary:hover:not(:disabled){background:var(--raak-brand-primary-hover,#1A2D59)}.ds-primary:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-primary:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-primary{transition:none}}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White bordered secondary action.",
+      "html": "<button class=\"ds-secondary\" type=\"button\">View example</button>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 15px;border:1px solid var(--raak-border-default,#E3E7F0);border-radius:var(--raak-radius-control,10px);background:var(--raak-surface-default,#FFFFFF);color:var(--raak-text-primary,#202A40);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:14px;font-weight:500;line-height:1.7;cursor:pointer;touch-action:manipulation;transition:background-color 130ms ease-out,border-color 130ms ease-out}.ds-secondary:hover:not(:disabled){background:var(--raak-app-background,#F8F9FD);border-color:var(--raak-text-secondary,#647086)}.ds-secondary:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-secondary:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-secondary{transition:none}}"
+    },
+    {
+      "name": "Ghost button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis primary-colored action.",
+      "html": "<button class=\"ds-ghost\" type=\"button\">More details</button>",
+      "css": ".ds-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 15px;border:1px solid transparent;border-radius:var(--raak-radius-control,10px);background:transparent;color:var(--raak-brand-primary,#243B70);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:14px;font-weight:500;line-height:1.7;cursor:pointer;transition:background-color 130ms ease-out,border-color 130ms ease-out}.ds-ghost:hover:not(:disabled){background:var(--raak-brand-primary-subtle,#EEF1FA)}.ds-ghost:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-ghost:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-ghost{transition:none}}"
+    },
+    {
+      "name": "Danger button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Contextual danger tint and observed 80% danger/20% ink text; no new brand color.",
+      "html": "<button class=\"ds-danger\" type=\"button\">Danger example</button>",
+      "css": ".ds-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 15px;border:1px solid transparent;border-radius:var(--raak-radius-control,10px);background:color-mix(in srgb,var(--raak-status-danger,#C44650) 7%,var(--raak-surface-default,#FFFFFF));color:color-mix(in srgb,var(--raak-status-danger,#C44650) 80%,var(--raak-text-primary,#202A40));font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:14px;font-weight:500;line-height:1.7;cursor:pointer;transition:background-color 130ms ease-out,border-color 130ms ease-out}.ds-danger:hover:not(:disabled){background:color-mix(in srgb,var(--raak-status-danger,#C44650) 13%,var(--raak-surface-default,#FFFFFF))}.ds-danger:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-danger:disabled{opacity:.55;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-danger{transition:none}}"
+    },
+    {
+      "name": "Labeled field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Visible-label input with invalid border support; illustrative copy only.",
+      "html": "<div class=\"ds-field\"><label for=\"ds-example-name\">Example name</label><input id=\"ds-example-name\" class=\"ds-input\" placeholder=\"Synthetic example\" autocomplete=\"off\" aria-describedby=\"ds-example-help\"><p id=\"ds-example-help\">Preview only; nothing is saved.</p></div>",
+      "css": ".ds-field{font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);color:var(--raak-text-primary,#202A40);line-height:1.7}.ds-field label{display:block;font-size:13px;font-weight:500;margin-block-end:7px}.ds-input{display:block;width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--raak-border-default,#E3E7F0);border-radius:var(--raak-radius-control,10px);background:var(--raak-surface-default,#FFFFFF);color:var(--raak-text-primary,#202A40);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:13px;line-height:1.7}.ds-input::placeholder{color:var(--raak-text-secondary,#647086);opacity:1}.ds-input:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-input[aria-invalid=true]{border-color:var(--raak-status-danger,#C44650)}.ds-field p{margin:6px 0 0;font-size:11px;line-height:20px;color:var(--raak-text-secondary,#647086)}"
+    },
+    {
+      "name": "White sidebar navigation",
+      "kind": "nav",
+      "refersTo": "navigation-current",
+      "description": "Selected and resting entries on a white surface; native links only.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Preview sections\"><a href=\"#overview\" aria-current=\"page\">Overview</a><a href=\"#components\">Components</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:4px;padding:16px;background:var(--raak-surface-default,#FFFFFF);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);font-size:14px;line-height:1.7}.ds-nav a{display:flex;align-items:center;gap:11px;min-height:44px;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:var(--raak-text-secondary,#647086);text-align:start;text-decoration:none;transition:background-color 130ms ease-out,color 130ms ease-out}.ds-nav a:hover,.ds-nav a[aria-current=page]{background:var(--raak-brand-primary-subtle,#EEF1FA);color:var(--raak-brand-primary,#243B70)}.ds-nav a[aria-current=page]{font-weight:600}.ds-nav a:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}@media(prefers-reduced-motion:reduce){.ds-nav a{transition:none}}"
+    },
+    {
+      "name": "Visit status indicators",
+      "kind": "chip",
+      "refersTo": "status-planned",
+      "description": "Five static label-plus-marker states; not interactive controls.",
+      "html": "<div class=\"ds-statuses\"><span class=\"ds-status ds-planned\"><svg aria-hidden=\"true\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"10\" stroke-dasharray=\"3 3\"/></svg>Planned</span><span class=\"ds-status ds-scheduled\"><svg aria-hidden=\"true\" width=\"8\" height=\"8\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"/></svg>Scheduled</span><span class=\"ds-status ds-progress\"><svg aria-hidden=\"true\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/></svg>In progress</span><span class=\"ds-status ds-completed\"><svg aria-hidden=\"true\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"m20 6-11 11-5-5\"/></svg>Completed</span><span class=\"ds-status ds-cancelled\"><svg aria-hidden=\"true\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><path d=\"m18 6-12 12M6 6l12 12\"/></svg>Cancelled</span></div>",
+      "css": ".ds-statuses{display:flex;flex-wrap:wrap;gap:12px;font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif)}.ds-status{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;font-size:13px;line-height:20px;font-weight:500;border-radius:6px;border:1px solid transparent;white-space:nowrap}.ds-status svg{flex-shrink:0}.ds-planned{color:var(--raak-text-secondary,#647086);background:var(--raak-surface-default,#FFFFFF);border-color:var(--raak-border-default,#E3E7F0);border-style:dashed}.ds-scheduled{color:var(--raak-status-info,#315DA3);background:color-mix(in srgb,var(--raak-status-info,#315DA3) 7%,var(--raak-surface-default,#FFFFFF))}.ds-progress{color:var(--raak-brand-primary,#243B70);background:var(--raak-brand-accent-subtle,#E9EAF9)}.ds-completed{color:color-mix(in srgb,var(--raak-status-success,#23856A) 80%,var(--raak-text-primary,#202A40));background:color-mix(in srgb,var(--raak-status-success,#23856A) 7%,var(--raak-surface-default,#FFFFFF))}.ds-cancelled{color:color-mix(in srgb,var(--raak-status-danger,#C44650) 80%,var(--raak-text-primary,#202A40));background:color-mix(in srgb,var(--raak-status-danger,#C44650) 7%,var(--raak-surface-default,#FFFFFF))}"
+    },
+    {
+      "name": "Quiet feedback container",
+      "kind": "card",
+      "refersTo": "feedback-container",
+      "description": "Border-based feedback appearance; no shadow or business-state claim.",
+      "html": "<section class=\"ds-feedback\"><h3>Restricted example</h3><p>This synthetic specimen demonstrates a quiet feedback surface.</p></section>",
+      "css": ".ds-feedback{border:1px solid var(--raak-border-default,#E3E7F0);border-radius:var(--raak-radius-card,12px);padding:18px;color:var(--raak-text-primary,#202A40);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);line-height:1.7}.ds-feedback h3{font-size:13px;font-weight:500;margin:0}.ds-feedback p{margin-block:8px 12px;font-size:12px;line-height:22px;color:var(--raak-text-secondary,#647086)}"
+    },
+    {
+      "name": "Logical-end detail sheet specimen",
+      "kind": "custom",
+      "refersTo": "detail-sheet",
+      "description": "Contained static appearance specimen. The app uses a fixed logical-end Radix dialog with dismissal and focus return; this snippet is not a modal.",
+      "html": "<div class=\"ds-sheet-stage\" dir=\"rtl\"><section class=\"ds-sheet\" lang=\"ar\" aria-label=\"مثال تفاصيل اصطناعي\"><header class=\"ds-sheet-header\"><h2>تفاصيل المثال</h2><p>معاينة اصطناعية فقط</p></header><div class=\"ds-sheet-body\"><bdi dir=\"ltr\">DEMO-001</bdi><h2>سجل تجريبي</h2><p>لا يتم حفظ أي تغييرات.</p></div><footer class=\"ds-sheet-footer\">معاينة المظهر فقط</footer></section></div>",
+      "css": ".ds-sheet-stage{position:relative;min-height:420px;background:rgb(32 42 64 / 18%);overflow:hidden}.ds-sheet{position:absolute;inset-inline-end:0;inset-block:0;width:min(480px,100%);display:flex;flex-direction:column;background:var(--raak-surface-default,#FFFFFF);color:var(--raak-text-primary,#202A40);box-shadow:0 12px 48px rgb(32 42 64 / 12%);font-family:var(--raak-font-arabic,'IBM Plex Sans Arabic','IBM Plex Sans',system-ui,sans-serif);font-size:14px;line-height:1.7}.ds-sheet-header{padding:24px;border-block-end:1px solid var(--raak-border-default,#E3E7F0)}.ds-sheet-header h2{margin:0;font-size:18px;font-weight:600}.ds-sheet-header p{margin:5px 0 0;font-size:12px;color:var(--raak-text-secondary,#647086)}.ds-sheet-body{padding:28px;overflow-y:auto;overscroll-behavior:contain}.ds-sheet-body bdi{font-size:12px;color:var(--raak-text-secondary,#647086)}.ds-sheet-body h2{font-size:24px;line-height:36px;font-weight:600;margin-block:10px 12px}.ds-sheet-footer{padding:24px;margin-block-start:auto;border-block-start:1px solid var(--raak-border-default,#E3E7F0);font-size:12px;color:var(--raak-text-secondary,#647086)}@media(max-width:620px){.ds-sheet-header,.ds-sheet-footer{padding:20px}.ds-sheet-body{padding:22px}}"
+    },
+    {
+      "name": "Crisp data table",
+      "kind": "custom",
+      "refersTo": "data-table",
+      "description": "Static synthetic columns with native horizontal overflow and hover; no sticky-header claim.",
+      "html": "<div class=\"ds-table-scroll\" role=\"region\" aria-label=\"Synthetic example table\" tabindex=\"0\"><table class=\"ds-table\"><thead><tr><th scope=\"col\">Example record</th><th scope=\"col\">Time</th><th scope=\"col\">State</th></tr></thead><tbody><tr><td>Demo 001</td><td><bdi dir=\"ltr\">09:30–10:00</bdi></td><td>Planned · unassigned</td></tr><tr><td>Demo 002</td><td><bdi dir=\"ltr\">11:00–11:30</bdi></td><td>Scheduled</td></tr></tbody></table></div>",
+      "css": ".ds-table-scroll{overflow-x:auto;scrollbar-width:thin;border-block:1px solid var(--raak-border-default,#E3E7F0);font-family:var(--raak-font-latin,'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif);line-height:1.7;color:var(--raak-text-primary,#202A40)}.ds-table-scroll:focus-visible{outline:2px solid var(--raak-brand-primary,#243B70);outline-offset:3px}.ds-table{width:100%;border-collapse:collapse;white-space:nowrap;text-align:start}.ds-table th{text-align:start;background:var(--raak-app-background,#F8F9FD);font-size:13px;font-weight:500;color:var(--raak-text-secondary,#647086);padding:12px 14px}.ds-table td{padding:13px 14px;font-size:14px;border-block-end:1px solid var(--raak-border-default,#E3E7F0)}.ds-table tbody tr:last-child td{border-block-end:0}.ds-table tbody tr:hover{background:var(--raak-app-background,#F8F9FD)}.ds-table th:first-child,.ds-table td:first-child{padding-inline-start:10px}.ds-table bdi{font-variant-numeric:tabular-nums}@media(max-width:620px){.ds-table{min-width:690px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Owner-approved Attio/Notion calm workspace",
+    "overview": "Raak's demonstrated visual system is quiet, human and content-led: crisp tables, open layouts and subtle interactions. Locked midnight blue, cool white surfaces and restrained lavender selection support operational clarity. The owner explicitly superseded the earlier seed world; this document introduces no replacement metaphor or identity.\n\nArabic RTL is the reference composition, with English LTR receiving equal content and behavior. This record captures a synthetic component board and workspace at `/ar/design-preview` and `/en/design-preview`, alongside the Sprint 1 foundation. It describes demonstrated visual patterns, not production business workflows or a promoted shared component library.",
+    "keyCharacteristics": [
+      "Quiet interface with crisp tables and open sections.",
+      "Locked Plex Arabic/Latin typography and restrained semantic color.",
+      "White logical-start navigation and logical-end record inspection.",
+      "Border-based depth, compact controls and explicit synthetic disclosure."
+    ],
+    "rules": [],
+    "dos": [
+      "**Do** preserve the locked tokens and locale-specific IBM Plex stacks.",
+      "**Do** keep navigation white, tables crisp, layouts open and interactions subtle.",
+      "**Do** mirror with logical properties and isolate mixed-direction data.",
+      "**Do** pair status labels with distinct markers and keep planned distinct from confirmed.",
+      "**Do** label demonstrations as synthetic and distinguish visual specimens from production behavior."
+    ],
+    "donts": [
+      "**Don't** revive the superseded seed world or invent a new visual metaphor.",
+      "**Don't** add an alternate palette, fonts or an unapproved logo. Imagery belongs to the relevant surface brief; this preview requires none.",
+      "**Don't** introduce glassmorphism, glow, giant gradients or a saturated sidebar.",
+      "**Don't** promote the exception-first preview composition into a universal page template.",
+      "**Don't** treat preview review results as production readiness or accessibility/compliance certification."
+    ]
+  }
+}
