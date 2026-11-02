@@ -6,6 +6,7 @@ import { getPrisma, disconnectPrisma } from '../db/client';
 import { deliverRequestEmail, resendSender } from '../modules/notifications/request-email';
 import { enqueueRequestEmail } from '../modules/notifications/request-email-queue';
 import { RequestEvents } from '../contracts/events';
+import { PeopleEvents } from '../contracts/people';
 import { createLogger, parseLogLevel } from '../logger';
 import { loadWorkerEnv } from './env';
 import { QUEUES } from './queues';
@@ -35,8 +36,8 @@ const emailWorker = emailConfigured
           eventId: job.data.eventId,
           encryptionKey: env.SESSION_SECRET!,
           now: () => new Date(),
-          buildLink: (slug, locale, token) =>
-            `${env.NODE_ENV === 'production' ? 'https' : 'http'}://${slug}.${env.BASE_DOMAIN}${env.PORTAL_PORT ? `:${env.PORTAL_PORT}` : env.NODE_ENV === 'production' ? '' : ':3000'}/${locale}/track#token=${token}`,
+          buildLink: (slug, locale, token, context) =>
+            `${env.NODE_ENV === 'production' ? 'https' : 'http'}://${slug}.${env.BASE_DOMAIN}${env.PORTAL_PORT ? `:${env.PORTAL_PORT}` : env.NODE_ENV === 'production' ? '' : ':3000'}/${locale}/${context ? 'account' : 'track'}#token=${token}${context ? `&purpose=${context.purpose}${context.requestId ? `&request=${context.requestId}` : ''}` : ''}`,
           send: resendSender(env.EMAIL_API_KEY!, env.EMAIL_FROM!),
         });
       },
@@ -58,7 +59,7 @@ const poller = emailConfigured
           const events = await getPrisma().$queryRaw<Array<{ id: string }>>`
       SELECT e.id FROM outbox_events e JOIN tenants t ON t.id = e.tenant_id
       LEFT JOIN email_deliveries d ON d.event_id = e.id
-          WHERE e.event_type = ${RequestEvents.ACCESS_EMAIL} AND e.processed_at IS NULL AND t.status = 'ACTIVE'
+          WHERE e.event_type IN (${RequestEvents.ACCESS_EMAIL}, ${PeopleEvents.VERIFICATION_EMAIL}, ${PeopleEvents.CLAIM_EMAIL}) AND e.processed_at IS NULL AND t.status = 'ACTIVE'
       AND (d.id IS NULL OR (d.status IN ('PENDING','SENDING') AND d.attempts < 5
         AND d.retry_at <= CURRENT_TIMESTAMP AND (d.lease_until IS NULL OR d.lease_until < CURRENT_TIMESTAMP)))
       ORDER BY e.created_at ASC LIMIT 100`;

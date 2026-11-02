@@ -167,3 +167,47 @@ At request creation: published service name/pricing type/price acknowledgment an
 
 ## Migration strategy
 Use additive migrations + backfills + constraints; never edit history of applied migrations. Seed platform services with stable codes; seed example agencies/patients **synthetic only**. Add composite integrity constraints with verified matching rows; test rollback of app deploy without rolling back irreversible data migrations.
+
+## Implemented Sprint 4 persistence
+
+Additive migrations `20261102100000_sprint4_people_access`,
+`20261102110000_sprint4_caregivers_documents`,
+`20261102120000_sprint4_reference_integrity` and
+`20261102130000_sprint4_scan_reservation` implement:
+
+- `CustomerCapability`: tenant/customer-bound VERIFY_EMAIL or CLAIM_REQUEST;
+  optional same-tenant request only for claim; hashed token/email binding,
+  15-minute expiry, atomic consumption, locale and encrypted delivery-only secret.
+  No token/email address is placed in new outbox payloads.
+- `Patient`: normalized advisory name, local birth date, optional contact/address/
+  notes, area/status and optimistic version. Names are not unique. Requests gain
+  a same-tenant optional patient FK; claimed customer references gain composite
+  integrity. Profile changes never rewrite accepted commercial records.
+- `PatientAccess`: nonempty allowlisted scopes, authorization method, same-tenant
+  verified customer/patient/reviewer, server-owned review time, optional same-tenant
+  evidence document, expiry and revocation. Partial unique reserves one unrevoked
+  ACTIVE association; expired grants still require explicit revocation before
+  reissue. `PatientDuplicateReview` preserves LINK/IGNORE and the reviewed reason.
+- `Caregiver`: optimistic version and separate availability revision. Qualifications
+  store PENDING/VERIFIED/REJECTED, independent verifier/time and optional private
+  document. Withdrawal preserves original verification fields and writes a new
+  reasoned status audit. `validThrough` is an inclusive tenant-local calendar date.
+  The legacy aggregate qualificationVerificationStatus is not eligibility authority.
+- `CaregiverServiceAuthorization`: tenant-consistent caregiver and service joins.
+  `AvailabilitySlot` permits multiple daily intervals and effective date ranges;
+  application validation rejects overlapping clock/effective-date intervals.
+  `AvailabilityException` has one current full-day leave or replacement interval
+  per caregiver/local date; replacing it increments the shared availability revision.
+- `Document`: polymorphic parent is checked transactionally; tenant/classification,
+  randomized private key, restricted original filename, MIME, bounded size,
+  checksum, upload expiry and scan status persist. `scanStartedAt` reserves a
+  scanner invocation before external I/O; abandoned scans quarantine.
+  `DocumentTicket` binds a hashed 60-second content capability to document/tenant/
+  session; current parent authority is rechecked, not snapshotted into the ticket.
+
+CHECKs enforce state/shape/scope/size bounds. Composite FKs protect customer,
+patient, reviewer, document, caregiver and service references where applicable;
+polymorphic parents remain service-validated. All new business writes use
+transactional audit/outbox. `prisma/seed-people.ts` adds create-only synthetic
+patients (including overlapping tenant names), two independent grants, a revoked
+grant, a caregiver, a synthetic verified qualification and weekly hours.

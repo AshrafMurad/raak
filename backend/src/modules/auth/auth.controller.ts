@@ -4,7 +4,12 @@
  * requireSession (+ CSRF for mutations). Rate limits per docs 05.
  */
 import { Router, type Response } from 'express';
-import { LoginSchema, VerifyEmailSchema, ForgotPasswordSchema, ResetPasswordSchema } from '../../contracts';
+import {
+  LoginSchema,
+  VerifyEmailSchema,
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
+} from '../../contracts';
 import { ApiError } from '../../api-error';
 import type { DatabaseClient } from '../../db/client';
 import { createAuthService } from './auth.service';
@@ -12,7 +17,7 @@ import { clearSessionCookies, setSessionCookies, type AuthRealm } from './cookie
 import { requireCsrf, requireSession, type AuthState } from './guards';
 import type { AcceptedRealm, HostRealm } from './host-resolver';
 import { createRateLimiter } from './rate-limit';
-import { asyncHandler, parseBody } from '../common/http';
+import { asyncHandler, parseBody, portalOriginGuard } from '../common/http';
 
 export interface RateLimits {
   registerPerHour: number;
@@ -37,13 +42,15 @@ export interface AuthControllerDeps {
   now(): Date;
   buildLink(kind: 'owner_verification' | 'password_reset', token: string): string;
   rateLimits?: Partial<RateLimits>;
+  origins?: readonly string[];
   /** Injectable for tests; production uses the real clock. */
   rateLimiter?: ReturnType<typeof createRateLimiter>;
 }
 
 function realmOf(res: Response): AcceptedRealm {
   const realm = res.locals.realm as HostRealm | undefined;
-  if (!realm || realm.kind === 'REJECTED') throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
+  if (!realm || realm.kind === 'REJECTED')
+    throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
   return realm;
 }
 
@@ -59,7 +66,8 @@ export function createAuthRouter(deps: AuthControllerDeps): Router {
     '/auth/login',
     limiter({
       name: 'login',
-      key: (req) => `${req.ip ?? 'unknown'}:${String((req.body as { email?: unknown })?.email ?? '').toLowerCase()}`,
+      key: (req) =>
+        `${req.ip ?? 'unknown'}:${String((req.body as { email?: unknown })?.email ?? '').toLowerCase()}`,
       limit: limits.loginPer15Min,
       windowMs: 15 * 60_000,
     }),
@@ -73,6 +81,30 @@ export function createAuthRouter(deps: AuthControllerDeps): Router {
         csrfToken: created.csrfToken,
         expiresAt: created.expiresAt,
       });
+      res.json({ data: { ...me, csrfToken: created.csrfToken } });
+    }),
+  );
+
+  router.post(
+    '/portal/accounts/login',
+    portalOriginGuard(deps.origins ?? []),
+    limiter({
+      name: 'customer-login',
+      key: (req) =>
+        `${req.get('host')}:${req.ip}:${String((req.body as { email?: unknown })?.email ?? '').toLowerCase()}`,
+      limit: limits.loginPer15Min,
+      windowMs: 15 * 60_000,
+    }),
+    asyncHandler(async (req, res) => {
+      const dto = parseBody(LoginSchema, req);
+      const { created, me } = await service.login(
+        realmOf(res),
+        dto.email,
+        dto.password,
+        'CUSTOMER',
+      );
+      setSessionCookies(res, 'AGENCY', created);
+      res.setHeader('Cache-Control', 'no-store');
       res.json({ data: { ...me, csrfToken: created.csrfToken } });
     }),
   );
@@ -97,7 +129,10 @@ export function createAuthRouter(deps: AuthControllerDeps): Router {
       const me = {
         principalType: auth.session.principalType,
         email:
-          auth.staff?.emailNormalized ?? auth.customer?.emailNormalized ?? auth.operator?.emailNormalized ?? '',
+          auth.staff?.emailNormalized ??
+          auth.customer?.emailNormalized ??
+          auth.operator?.emailNormalized ??
+          '',
         ...(auth.staff?.role !== undefined ? { role: auth.staff.role } : {}),
         ...(auth.realm.kind === 'AGENCY'
           ? {

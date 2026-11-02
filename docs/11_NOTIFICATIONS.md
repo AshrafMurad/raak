@@ -71,6 +71,23 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 
 ## Tests
 
+### Implemented Sprint 4 security verification
+
+`email.customer_verification` and `email.customer_claim` join the existing durable
+request-email queue/lease/retry pipeline. Events carry the capability-record ID
+as aggregate and empty payload; recipient, locale, current account/request state
+and tenant are resolved again at delivery. Delivery-only encrypted secrets are
+scrubbed on send/consumption. New links target the tenant `/account` route with
+fragment-only proof; claim links additionally identify the request in the cleared
+fragment and remain bound to the issuing customer. Email contains generic security
+copy, not patient/relationship/license details. The existing provider/domain gate
+remains open; capture adapters in tests are not live email delivery.
+
+People/caregiver/document mutations also append canonical durable events from
+`contracts/people.ts`, `caregivers.ts`, `documents.ts` atomically with audit and
+business data. Their payloads contain no patient free text or file capabilities.
+Sprint 7 retains general inbox/policy/business-notification delivery ownership.
+
 ### Implemented Sprint 3 durable events
 
 `QuoteEvents` in `backend/src/contracts/events.ts` adds `quote.sent`,

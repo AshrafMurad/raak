@@ -12,6 +12,7 @@
 import { createHash } from 'node:crypto';
 import { getPrisma, disconnectPrisma } from '../src/db/client';
 import { hashPassword } from '../src/modules/auth/crypto';
+import { seedPeople } from './seed-people';
 
 const TENANT_AFIYA_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ALNADWA_ID = '22222222-2222-4222-8222-222222222222';
@@ -194,13 +195,23 @@ async function main() {
     },
   });
 
-  const [tenants, operators, staff, customers, invitations] = await Promise.all([
-    prisma.tenant.count(),
-    prisma.platformOperator.count(),
-    prisma.staffAccount.count(),
-    prisma.customerAccount.count(),
-    prisma.staffInvitation.count(),
-  ]);
+  await seedPeople(prisma, {
+    tenantA: TENANT_AFIYA_ID,
+    tenantB: TENANT_ALNADWA_ID,
+    reviewerId: afiyaOwner.id,
+    passwordHash,
+  });
+  const [tenants, operators, staff, customers, invitations, patients, grants, caregivers] =
+    await Promise.all([
+      prisma.tenant.count(),
+      prisma.platformOperator.count(),
+      prisma.staffAccount.count(),
+      prisma.customerAccount.count(),
+      prisma.staffInvitation.count(),
+      prisma.patient.count(),
+      prisma.patientAccess.count(),
+      prisma.caregiver.count(),
+    ]);
   process.stdout.write(
     `${JSON.stringify({
       msg: 'seed complete (synthetic only)',
@@ -209,6 +220,9 @@ async function main() {
       staff,
       customers,
       invitations,
+      patients,
+      grants,
+      caregivers,
     })}\n`,
   );
 }

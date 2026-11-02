@@ -80,3 +80,30 @@ async function canViewVisit(ctx: AuthContext, visitId: string) {
 }
 ```
 Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants and data minimization. Deny if no explicit rule matches.
+
+## Implemented Sprint 4 policy and projections
+
+- Central actions: `customers.claim` and `patients.granted_read` for verified
+  customers; `patients.read/manage`, `caregivers.read/manage`, `documents.manage`
+  for Owner/Admin/Coordinator; `patients.grants` and `caregivers.verify` for
+  Owner/Admin only; `caregivers.self_read` for the linked caregiver only.
+  `documents.read_granted` additionally checks the exact parent/classification
+  and active VIEW_DOCUMENTS grant. Platform operators receive none of these.
+- All People services recheck current account/session version, revocation,
+  expiry, tenant lifecycle and central policy in the workflow transaction.
+  Staff service-boundary checks now include the live AuthSession row as well.
+- No coordinator grant delegation is configured. Patient/customer registration,
+  shared contact details, request claims and qualification titles never confer
+  patient or clinical authority. Qualification review cannot be self-performed.
+- Customer patient summaries contain only `id,displayName,status`, with VIEW_BASIC
+  required. VIEW_DOCUMENTS alone is not VIEW_BASIC. Caregiver self-profile excludes
+  license numbers, exception reasons and patient records; agency qualification
+  responses also omit license numbers by default.
+- Agency-only uploads: ordinary patient attachments and qualification evidence
+  require operational management; authorization evidence requires grant-management
+  authority. Customers have no defined attachment-write scope and cannot upload.
+  VIEW_DOCUMENTS grants read only PATIENT_ATTACHMENT, never agency authorization
+  evidence or caregiver qualification documents.
+- Download capabilities last 60 seconds and require the same current session on
+  every content request. Grant revocation/expiry or session/tenant suspension
+  denies previously issued links; no object-store URL is exposed. See ADR-0011.

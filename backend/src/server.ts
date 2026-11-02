@@ -16,6 +16,11 @@ import { createPlatformRouter } from './modules/platform/platform.controller';
 import { createCatalogRouter } from './modules/catalog/catalog.controller';
 import { createRequestingRouter } from './modules/requesting/requesting.controller';
 import { createQuoteRouter } from './modules/commercial/quote.controller';
+import { createCustomerRouter } from './modules/customers/customer.controller';
+import { createPatientRouter } from './modules/patients/patient.controller';
+import { createCaregiverRouter } from './modules/caregivers/caregiver.controller';
+import { createDocumentRouter } from './modules/documents/document.controller';
+import type { MalwareScanner, PrivateObjectStorage } from './modules/documents/private-storage';
 
 export interface AppDeps {
   env: AppEnv;
@@ -25,6 +30,8 @@ export interface AppDeps {
   /** When absent (no DATABASE_URL) only health endpoints are mounted. */
   db?: DatabaseClient;
   rateLimits?: Partial<RateLimits>;
+  privateStorage?: PrivateObjectStorage;
+  malwareScanner?: MalwareScanner;
 }
 
 /**
@@ -186,7 +193,13 @@ export function buildApp(deps: AppDeps): Express {
       const buildLink = makeLinkBuilder(deps.env);
       app.use(
         '/v1',
-        createAuthRouter({ db: deps.db, now: deps.now, buildLink, rateLimits: deps.rateLimits }),
+        createAuthRouter({
+          db: deps.db,
+          now: deps.now,
+          buildLink,
+          rateLimits: deps.rateLimits,
+          origins: deps.env.corsOrigins,
+        }),
       );
       app.use(
         '/v1',
@@ -213,6 +226,16 @@ export function buildApp(deps: AppDeps): Express {
         createRequestingRouter(deps.db, deps.now, deps.env.SESSION_SECRET, deps.env.corsOrigins),
       );
       app.use('/v1', createQuoteRouter(deps.db, deps.now, deps.env.corsOrigins));
+      app.use(
+        '/v1',
+        createCustomerRouter(deps.db, deps.now, deps.env.SESSION_SECRET, deps.env.corsOrigins),
+      );
+      app.use('/v1', createPatientRouter(deps.db, deps.now));
+      app.use('/v1', createCaregiverRouter(deps.db, deps.now));
+      app.use(
+        '/v1',
+        createDocumentRouter(deps.db, deps.now, deps.privateStorage, deps.malwareScanner),
+      );
     } else {
       // Fail closed when tenant routing is unconfigured.
       app.use('/v1', realmReject);
