@@ -49,7 +49,8 @@ export async function apiRequest<T>(
   realm: RealmTarget = 'current',
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json');
+  if (typeof init.body === 'string' && !headers.has('Content-Type'))
+    headers.set('Content-Type', 'application/json');
   const method = (init.method ?? 'GET').toUpperCase();
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     const csrf = csrfCookie(realm);
@@ -68,4 +69,12 @@ export async function apiRequest<T>(
     throw new ApiRequestError(response.status, body.error?.code ?? 'REQUEST_FAILED');
   }
   return body.data;
+}
+
+/** Same API-host binding as fetch, including split-port development. Never
+ * navigates to a storage/provider URL returned by an untrusted payload. */
+export function privateDownloadHref(path: string): string {
+  if (!/^\/v1\/documents\/[a-f0-9-]{36}\/content\?ticket=[A-Za-z0-9_-]{20,200}$/.test(path))
+    throw new Error('INVALID_DOWNLOAD_PATH');
+  return apiUrl(path.slice(3), 'current');
 }

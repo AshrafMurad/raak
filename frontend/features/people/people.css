@@ -1,0 +1,8 @@
+/* Domain content resilience; shared controls/tokens remain the visual source. */
+.raak-people {
+  display: contents;
+  overflow-wrap: anywhere;
+}
+.raak-people fieldset {
+  min-inline-size: 0;
+}
