@@ -92,7 +92,7 @@ export async function createSession(
 }
 
 export async function resolveSession(
-  db: DatabaseClient,
+  db: DatabaseClient | Prisma.TransactionClient,
   sessionToken: string,
   now: () => Date = () => new Date(),
 ): Promise<ResolvedSession | null> {
