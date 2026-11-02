@@ -33,6 +33,16 @@ Quote states: `DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, SUPERSEDED`.
 - Customer acceptance requires fresh verified and authorized session or single-use verified quote action, explicit consent to this exact version, one effective accepted quote. Agency review/plan scheduling still required.
 - Once ACCEPTED, no further revision through quote revision flow; change service scope with a new commercial process (post-accept amendment deferred in V1; coordinator can cancel/restart request with audit before visits begin).
 
+Sprint 3 implementation notes (no rule changes): quote validity is requested as
+a bounded relative window (`validForHours`, 1..2160) so stored `validUntil`
+instants are always server-owned; expiry is enforced by an in-transaction
+wall-clock check on every read/action path and lazily persisted, never by a
+queued job alone. Quote acceptance idempotency is keyed per verified principal
+(`customer:`/`guest:` scoped) with a stored safe response summary. All quote
+writers serialize on the tenant row then the request row; the one-effective-SENT
+and one-PENDING-revision partial unique indexes are the final guard against
+races.
+
 ## BR-PAT: Patient and delegation
 - Patient belongs to one tenant. Patient can have many requests, care plans, visits.
 - Owner of customer account is NOT automatically patient or legal representative.

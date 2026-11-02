@@ -55,16 +55,36 @@ Sprint 1 migration `20261027181752_sprint1_identity` implements the tenancy,
 identity, invitation, session, email-token, caregiver-link and audit tables.
 `principalId` on polymorphic session/token rows is enforced by service logic;
 tenant/account status and `sessionVersion` are rechecked on every private call.
+Sprint 2 migrations add catalog/branding, guest intake (requests, guest
+tokens/sessions, request notifications) and delivery integrity. Sprint 3
+migration `20261101190000_sprint3_commercial` adds the commercial tables
+below, `service_requests.customer_account_id/decision_*` columns,
+`request_status_history.reason`, `request_notifications.event_type` (the
+per-(request,staff,event) unique replaces the Sprint 2 triple), and the
+partial uniques from BR-QTE.
 
 ## Catalog and requests
 | Table | Essential fields | Constraints / notes |
 |---|---|---|
 | `platform_services` | `id,code,defaultNameAr,defaultNameEn,description,clinicalClass,defaultQualificationCodes,active` | canonical templates controlled by platform; never exposed if disabled |
 | `agency_services` | `id,tenantId,templateId?,slug,nameAr,nameEn,summary,description,imageDocumentId?,durationMin,allowStandalone,allowRecurring,requiredQualificationCodes,serviceAreaIds,pricingType,priceMinor?,pricingUnit?,isEnabled,isPublished` | unique(tenantId,slug); custom service may have no template; validation for clinical service class |
-| `service_requests` | `id,tenantId,agencyServiceId,customerAccountId?,patientId?,requesterName,requesterEmailNormalized,requesterPhone?,beneficiaryName,relationship,areaId,preferredWindowJson,notesRestricted?,status,priceAcknowledgementJson?,submittedAt,decisionAt?` | tenant-scoped; private notes; minimal guest data |
-| `request_status_history` | `id,tenantId,requestId,fromStatus,toStatus,actorId,reason?,at` | append-only |
-| `quotes` | `id,tenantId,requestId,quoteGroupId,version,status,currency,lineItemsSnapshot,totalMinor,termsSnapshot,validUntil,sentAt,acceptedAt?,acceptedByPrincipalId?` | unique(tenantId,quoteGroupId,version); immutable from SENT except state timestamps |
+| `service_requests` | `id,tenantId,agencyServiceId,customerAccountId?,requesterName,requesterEmailNormalized,requesterPhone?,beneficiaryName,relationship,areaId,preferredWindowJson,notesRestricted?,status,version,priceAcknowledgementJson?,submittedAt,decisionAt?,decisionStaffId?,decisionReason?` | tenant-scoped; private notes; minimal guest data; decision columns set only on terminal transitions |
+| `request_status_history` | `id,tenantId,requestId,fromStatus,toStatus,actorId,reason?,at` | append-only; `reason` carries the request-info note / customer response / decision reason |
+| `quotes` | `id,tenantId,requestId,quoteGroupId,version,rowVersion,status,currency,lineItemsSnapshot,totalMinor,termsSnapshot,validUntil,sentAt,acceptedAt?,rejectedAt?,acceptedByType?,acceptedById?` | unique(tenantId,quoteGroupId,version); immutable from SENT except state timestamps; partial uniques: one effective SENT and one open DRAFT per (tenantId,quoteGroupId); CHECKs keep totals nonnegative, drafts unfrozen and outcomes mutually exclusive |
 | `quote_revision_requests` | `id,tenantId,quoteGroupId,quoteId,customerAccountId?,requesterVerifiedTokenRef?,message,status,createdAt,resolvedAt?` | partial unique pending per quoteGroup |
+| `idempotency_keys` | `id,tenantId,principalId,key,requestHash,responseSummary,expiresAt` | unique(tenantId,principalId,key); `principalId` is `customer:<accountId>` or `guest:<sessionId>`; only a safe response summary is stored |
+
+Sprint 3 notes: `quote_revision_requests.requestedByType/requestedById` record
+the verified GUEST or CUSTOMER_ACCOUNT actor; resolution fields are
+`resolvedAt/resolvedBy/declineReason`. Quote money is stored as integer minor
+units with the tenant currency snapshot; `validUntil` and `sentAt` are
+server-owned UTC instants set at send.
+
+Review hardening migration `20261102060000_sprint3_accepted_agreement_guard`
+adds a partial unique `(tenant_id,request_id) WHERE status='ACCEPTED'`. It fails
+on conflicting history rather than deleting agreements. The application blocks
+post-acceptance quote amendment under the tenant writer lock. Quote totals are
+validated to PostgreSQL INTEGER's maximum (2147483647 minor units).
 
 ## Patients and access
 
