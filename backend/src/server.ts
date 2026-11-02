@@ -15,6 +15,7 @@ import { createStaffRouter } from './modules/staff/staff.controller';
 import { createPlatformRouter } from './modules/platform/platform.controller';
 import { createCatalogRouter } from './modules/catalog/catalog.controller';
 import { createRequestingRouter } from './modules/requesting/requesting.controller';
+import { createQuoteRouter } from './modules/commercial/quote.controller';
 
 export interface AppDeps {
   env: AppEnv;
@@ -211,6 +212,7 @@ export function buildApp(deps: AppDeps): Express {
         '/v1',
         createRequestingRouter(deps.db, deps.now, deps.env.SESSION_SECRET, deps.env.corsOrigins),
       );
+      app.use('/v1', createQuoteRouter(deps.db, deps.now, deps.env.corsOrigins));
     } else {
       // Fail closed when tenant routing is unconfigured.
       app.use('/v1', realmReject);

@@ -15,6 +15,7 @@ export const PERMISSION_ACTIONS = [
   'catalog.publish',
   'branding.manage',
   'requests.review',
+  'quotes.manage',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -52,7 +53,7 @@ export function authorize(
   if (principal.principalType === 'AGENCY_STAFF') {
     if (principal.tenantStatus === 'ACTIVE') {
       const admin = principal.role === 'AGENCY_OWNER' || principal.role === 'AGENCY_ADMIN';
-      if (['catalog.read', 'catalog.draft', 'requests.review'].includes(action))
+      if (['catalog.read', 'catalog.draft', 'requests.review', 'quotes.manage'].includes(action))
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
       if (action === 'catalog.publish' || action === 'branding.manage') return { allowed: admin };
     }
