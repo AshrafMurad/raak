@@ -9,16 +9,19 @@ This Git repository contains the shared spec pack (`docs/`, `AGENTS.md`) and two
 | [`backend/`](backend/) | Node.js 24, Express 5, TypeScript strict, Prisma 7 (PostgreSQL), BullMQ worker | REST API `/v1`, migrations, synthetic seed, health checks |
 | [`frontend/`](frontend/) | Next.js 16, TypeScript strict, Tailwind CSS 4 | Arabic-first (RTL) / English (LTR) web app shell |
 
-Current slice: **Sprint 3 — Requests and commercial journey**. See the
-[implementation status](docs/plans/sprint-03-status.md),
-[review and verification](docs/plans/sprint-03-review.md), and
-[local browser guide](docs/SPRINT_3_LOCAL_CHECK.md).
+Current slice: **Sprint 4 — People and Access**. See the
+[implementation plan](docs/plans/sprint-04-people-access.md),
+[status and evidence](docs/plans/sprint-04-status.md),
+[security/maintainability review](docs/plans/sprint-04-review.md), and
+[local verification guide](docs/SPRINT_4_LOCAL_CHECK.md).
 
 ## Quickstart
 
-For Sprint 3, start with the [local browser guide](docs/SPRINT_3_LOCAL_CHECK.md).
-It includes a two-window synthetic demo with captured verification email, so you
-can explore the coordinator/customer journey without configuring an email provider.
+For Sprint 4, start with the [local verification guide](docs/SPRINT_4_LOCAL_CHECK.md).
+Its automated browser harness uses synthetic captured email and explicit file
+test doubles; live email/storage/scanning verification remains a separate gate.
+The [Sprint 3 guide](docs/SPRINT_3_LOCAL_CHECK.md) retains the interactive
+coordinator/customer commercial demo.
 
 ```bash
 # backend (terminal 1)
@@ -44,4 +47,4 @@ Verification (per repo): `npm run lint && npm run typecheck && npm run test && n
 - ADRs in `docs/adr/`; version pins in [ADR-0001](docs/adr/ADR-0001-runtime-and-versions.md); repo layout in [ADR-0007](docs/adr/ADR-0007-single-repository.md).
 - Branching, commits, pull requests and releases follow [Git Standards](docs/GIT_STANDARDS.md).
 - Large downloads (>~50 MB) are owner-run; agents provide exact commands.
-- Verification evidence and pending gates: [Sprint 3 review](docs/plans/sprint-03-review.md).
+- Verification evidence and pending gates: [Sprint 4 review](docs/plans/sprint-04-review.md).
