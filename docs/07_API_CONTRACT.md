@@ -349,6 +349,171 @@ Total is **calculated server-side** from trusted validated line items; no client
 | POST | `/portal/my/requests/:id/claim` | Link prior request with fresh ownership proof |
 
 ## Caregivers, plans and visits
+
+### Implemented Sprint 4 — People and private files
+
+Canonical strict input schemas: `contracts/people.ts`, `caregivers.ts`,
+`documents.ts`. Unknown fields, including client tenant/verification/status
+overrides, are rejected. Host resolution, live session/CSRF and central policy
+precede resource checks; services recheck authority within transactions. Private
+responses are no-store. Inaccessible object IDs return 404.
+
+#### Customer onboarding and claims
+
+| Method | Path | Input / result |
+|---|---|---|
+| POST | `/portal/accounts/register` | `{email,password(10..128),locale?:ar|en}` → generic 202 `{acknowledged:true}`; pending tenant-specific customer + security email capability |
+| POST | `/portal/accounts/login` | `{email,password}` → customer-only AuthMe + host-only session/CSRF cookies, even if a staff identity shares the address |
+| POST | `/portal/accounts/resend-verification` | `{email,locale?}` → same generic 202; at most four verification issues/account/hour |
+| POST | `/portal/accounts/verify-email` | `{token}` → `{ok:true}`; no existing session required |
+| POST | `/portal/accounts/claim-link` | Verified customer session + CSRF; `{reference,locale?}` → generic 202; at most four claim issues/customer/hour |
+| POST | `/portal/my/requests/:id/claim` | Verified customer + CSRF; `{token}` → `{id}`; fresh customer/request/tenant/email-bound capability required |
+
+Registration/verification/claim-link transport is same-origin guarded and limited
+to 20 onboarding POSTs/host/IP/hour/process. Independent same-email accounts
+across tenants remain supported. Existing customer addresses receive the same
+registration acknowledgment without replacement. Explicit customer sign-in never
+selects a staff identity; the existing `/auth/login` staff-first behavior remains
+unchanged. Staff invitations/session infrastructure are reused; no public staff
+signup. Customer sign-in has its own 10/email/host/IP/15-minute limiter.
+
+Verification capabilities are opaque, hashed, single-use and 15 minutes long.
+Wrong host never consumes a capability; expiry is 401 TOKEN_EXPIRED and replay
+409 TOKEN_ALREADY_USED. Verification activates only its pending customer and
+invalidates outstanding verification proofs for that customer. Claim issuance
+requires matching current request email and an unowned request, but matching
+email never associates it. Consumption additionally requires the issuing customer
+and exact request; a competing owner is never overwritten. Ownership/version,
+consumption and audit/outbox commit together under the tenant writer lock.
+Previously accepted quotes, guest acceptance actors and agreement snapshots are
+unchanged. A claim grants request status/commercial access only; no PatientAccess.
+
+#### Patients, duplicate review and grants
+
+- GET `/agency/patients` and `/portal/my/patients`: `{items,nextCursor}`,
+  UUID cursor, 20 per page. Agency lists include id/name/area/status/version;
+  customer list/detail contain **id,displayName,status only** and require active
+  non-revoked, non-expired VIEW_BASIC. GET `/portal/my/patients/:id` implements
+  the same grant-scoped summary. Caregivers cannot use agency patient search.
+- Operational profile: `{displayName(2..120),dateOfBirth?:valid YYYY-MM-DD|null,
+  contact?:<=254,areaId(1..64),addressRestricted?:<=500,notesRestricted?:<=500}`.
+  Future birth dates and unconfigured agency areas are refused. GET
+  `/agency/patients/:id` returns this projection plus id/status/version.
+- POST `/agency/patients/duplicates/check`: profile body → `{items}` with bounded
+  id/name/birth-date/area/version suggestions, never addresses/notes/contact.
+  Cues are normalized name/word matches, exact optional date-of-birth or contact;
+  advisory and same-tenant only. Over 100 candidates requires narrowing/review.
+- POST `/agency/patients`: `{profile,duplicateReviews:[{candidateId,reason(5..300)}]}`.
+  Suggestions are recomputed inside the creation transaction. Every current
+  candidate must have an explicit ignored-candidate reason; stale/missing/extra
+  candidates return 409 STATE_TRANSITION_INVALID. No automatic merge or name
+  uniqueness constraint exists. PATCH `/agency/patients/:id` takes
+  `{profile,expectedVersion}` and preserves identity/history.
+- POST `/agency/requests/:id/create-patient`: same create body plus
+  `expectedVersion`; APPROVED only. POST `.../link-patient` takes
+  `{patientId,expectedVersion,reason(5..300)}`. Linking requires an ACTIVE
+  same-tenant patient and reviewed identity. One immutable request association;
+  replay returns the existing result, conflicting target returns 409. Creating
+  twice from one approved request returns the first patient without duplicates.
+  Neither action issues a grant or creates a visit.
+- Owner/Admin only: POST `/agency/customers/lookup` `{email}` → `{id}` for an
+  active verified same-tenant customer; this is not a public discovery endpoint.
+- POST `/agency/patients/:id/access-grants`: `{customerAccountId,scopes[],
+  authorizationType,evidenceDocumentId?,expiresAt?:UTC ISO}`. Scopes are the six
+  documented PatientAccess scopes, nonempty/unique. Methods are PATIENT_CONSENT,
+  LEGAL_REPRESENTATIVE, AGENCY_VERIFIED_AUTHORITY. Reviewer/time are server-owned.
+  Evidence must be CLEAN, unarchived AUTHORIZATION_EVIDENCE on that exact patient.
+  Expiry must be future; an existing unrevoked association must be revoked before
+  reissue, including when expired. GET the same path lists up to 100 reviewed
+  grants with `effectiveStatus` reflecting expiry; no implicit coordinator
+  delegation is configured.
+- POST `/agency/patient-access/:id/revoke` `{reason(5..300)}` is immediately
+  effective, audited and stable on replay. Existing document links are rechecked
+  at use time. Grant presence alone is insufficient: the exact scope is checked
+  for every implemented operation. No scope enables an unimplemented workflow.
+
+#### Caregiver setup and eligibility foundation
+
+Owner/Admin/Coordinator read/manage operational profiles. Owner/Admin alone
+verify qualifications and authorize services; no self-verification is permitted.
+Existing staff invitation acceptance continues creating linked caregiver accounts.
+
+| Method | Path | Input / purpose |
+|---|---|---|
+| GET/POST | `/agency/caregivers` | Paginated list / unlinked operational profile `{name,professionalCategory,operationalStatus:ACTIVE|INACTIVE,serviceAreas[]}` |
+| GET/PATCH | `/agency/caregivers/:id` | Profile; PATCH same fields + `expectedVersion` |
+| GET | `/caregiver/my/profile` | Current linked caregiver only; no patient content, license numbers or leave reasons |
+| POST | `/agency/caregivers/:id/qualifications` | `{code,licenseIssuer,licenseNumberRestricted,validThrough:localDate|null,documentId?}` → PENDING; CLEAN same-parent QUALIFICATION evidence only |
+| POST | `/agency/qualifications/:id/verify` | `{expectedVersion,decision:VERIFIED|REJECTED,reason?}`; rejection/withdrawal requires reason; VERIFIED can be withdrawn to REJECTED; no reopening rejected records |
+| PUT | `/agency/caregivers/:id/service-authorizations` | `{expectedVersion,serviceIds[]}` replaces explicit same-tenant authorizations and increments profile version |
+| PUT | `/agency/caregivers/:id/availability` | `{expectedRevision,slots[]}` replaces weekly intervals and increments separate availability revision |
+| POST | `/agency/caregivers/:id/exceptions` | `{expectedRevision,localDate,type:UNAVAILABLE|OVERRIDE_HOURS,startLocal?,endLocal?,reason}` replaces one date's exception, increments revision |
+| POST | `/agency/caregivers/:id/eligibility` | `{serviceId,localDate,startLocal,endLocal}` → foundation result only |
+
+Weekly slot: `{weekday:0..6,localStartTime:HH:mm,localEndTime:HH:mm,
+effectiveFrom?:localDate|null,effectiveTo?:localDate|null}`. Multiple disjoint
+intervals are retained by the model; overlaps across intersecting effective dates
+are rejected. Overnight/invalid clock intervals are refused. UNAVAILABLE is
+full-day with null start/end; OVERRIDE_HOURS replaces that local date's weekly
+coverage with one valid interval. All clock/calendar values use tenant timezone;
+templates do not yet convert local times to visit instants (Sprint 5 owns DST
+disambiguation). All availability/exception writers lock tenant then caregiver;
+stale updates return 409 VERSION_CONFLICT.
+
+Eligibility checks active/verified linked caregiver account, operational state,
+explicit service authorization, required independently verified qualifications
+valid **through the inclusive requested local date**, shared service-area coverage
+and interval coverage after leave/overrides. Response:
+`{caregiverId,foundationEligible,reasons[],bookingAvailabilityChecked:false,
+appointmentConfirmed:false}`. Reasons: ACCOUNT_INACTIVE, SERVICE_NOT_AUTHORIZED,
+QUALIFICATION_INVALID, AREA_NOT_COVERED, OUTSIDE_AVAILABILITY. It is not a ranked
+candidate search and does not check visit conflicts, travel buffer, visit-specific
+area or booking commitment. Exception/qualification events remain durable for
+Sprint 5's impact scanner; no future assignment is silently changed here.
+
+#### Private files
+
+Agency operational managers upload ordinary patient attachments and qualification
+documents. Authorization evidence requires Owner/Admin grant authority. Customers
+may read only PATIENT_ATTACHMENT under current VIEW_DOCUMENTS; no attachment-write
+scope is inferred. Supporting evidence must be attached to the same parent and
+have the required classification and CLEAN scan status.
+
+- POST `/documents/upload-intent`: `{parentType:PATIENT|CAREGIVER,parentId,
+  classification:PATIENT_ATTACHMENT|AUTHORIZATION_EVIDENCE|QUALIFICATION,
+  originalName,mime,sizeBytes}` → 201 metadata plus relative API `uploadUrl`,
+  `uploadMethod:PUT`, `expiresInSeconds:300`. Valid filename/extension, PDF/JPEG/PNG
+  MIME allowlist, 1..5242880 bytes. Missing private storage returns 503.
+- PUT `/documents/:id/upload`: same session/creator + CSRF, exact allowed MIME,
+  raw bounded bytes. Metadata size and content signatures/trailers must agree;
+  spoofing commits REJECTED and returns 422. Random keys are immutable/create-only.
+  Successful staging returns PROCESSING; it is not a successful malware scan.
+- POST `/documents/:id/finalize` `{}`: uploader authority rechecked; one scanner
+  reservation, external storage read/ClamAV call, reauthorization and atomic scan
+  result/audit/outbox. Concurrent scan returns 409; a 120-second abandoned
+  reservation quarantines. Missing/error scanner gives QUARANTINED, never CLEAN.
+  Terminal state replay returns the current state.
+- POST `/documents/list`: `{parentType,parentId,classification}` → up to 100 safe
+  metadata rows for an authorized parent. GET `/documents/:id` returns the same
+  safe metadata (not filename/key/checksum/creator or content).
+- GET `/documents/:id/download`: CLEAN + current resource authority only →
+  `{url,expiresInSeconds:60}`. The URL is an opaque, hash-backed API content
+  capability bound to the current session (ADR-0011), not a public S3 URL.
+- GET `/documents/:id/content?ticket=…`: same live session, exact tenant/document/
+  parent/classification/grant and unexpired capability, checked again after private
+  storage read. Returns attachment bytes with no-store/no-referrer/no-sniff and
+  checksum verification. Revoked or expired grants deny even an earlier-issued
+  URL. Already delivered bytes cannot be recalled. Unscanned/rejected/quarantined
+  content is never served.
+
+S3/ClamAV adapters are configured in `backend/.env.example`. Before enabling a
+configured production adapter, startup writes a non-sensitive probe, requires
+anonymous GET to return 403 and deletes only that unique probe. Failure disables
+storage; upload intent returns 503. The cached local emulator failed this gate
+(anonymous GET 200) and is not accepted as private storage.
+Local adapter protocol tests and synthetic doubles are not live infrastructure evidence. All existing
+email-provider/domain and production privacy/governance gates remain open.
+
 | Method | Path | Purpose |
 |---|---|---|
 | GET/POST | `/agency/caregivers` | Create/list, include invite eligibility |

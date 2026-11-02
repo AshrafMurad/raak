@@ -56,3 +56,29 @@ Even a limited operational patient file can contain sensitive personal/health-re
 
 ## Launch boundary
 These technical practices are **not a compliance certification**. Before processing live patient data, obtain required jurisdiction-specific health/privacy legal and operational review, clinical governance, security assessment, provider agreements and data retention policy. If this is only a portfolio demo, keep all identities synthetic and prominently label demo data.
+
+### Sprint 4 private-file implementation
+
+PDF/JPEG/PNG only, extension/MIME agreement and bounded magic-byte/trailer checks;
+maximum **5 MiB**. The original restricted filename is never echoed as a response
+header. Files are downloaded as attachments with no-sniff and no-store; no inline
+viewer or public storage URL is supplied. Storage uses create-only random keys;
+content reads also verify the scanned SHA-256 checksum. These controls supplement,
+not replace, a real malware engine.
+
+Configured S3 adapters must pass a startup anonymous-read privacy probe before
+the API enables uploads. Probe bytes are fixed non-sensitive test content, use a
+unique `_raak_private_probe/` key and are deleted afterwards. A failure keeps the
+adapter disabled and logs only a safe configuration code. The installed LocalStack
+failed this strict check (HTTP 200), so its private-storage acceptance remains
+blocked rather than being treated as a successful storage integration.
+
+Missing storage rejects upload intent with 503; missing/error/unrecognized scanner
+response quarantines. PENDING/PROCESSING/REJECTED/QUARANTINED cannot download.
+Concurrent finalizers cannot overwrite each other's scan verdict; a scan abandoned
+for 120 seconds is quarantined on retry, and a late result cannot restore CLEAN.
+Patient grants never expose authorization evidence or caregiver qualification
+files. Proxy content access rechecks current tenant/account/session/grant before
+and after storage I/O and records a safe download audit. Already delivered bytes
+cannot be recalled. Live bucket privacy, credentials, engine/signature freshness
+and S3 interoperability require external infrastructure verification.

@@ -87,6 +87,16 @@ await prisma.$transaction(async (tx) => {
 - Client uploads to short-lived signed URL with restricted size/type; finalize waits for antivirus/content checks where appropriate before making file downloadable. SVG/executable/HTML prohibited for sensitive attachment route unless separately safely handled.
 - Download API authorizes tenant, patient/access grant, parent and classification, then issues short TTL signed read URL; do not store public file URL in DB.
 
+Sprint 4 implementation detail (ADR-0011): the basic upload transport is an
+authenticated, CSRF-protected, bounded API PUT to a randomized private immutable
+object. Finalization reserves one scan, reads and validates bytes, invokes ClamAV
+outside transactions, then reauthorizes before committing CLEAN/REJECTED/
+QUARANTINED. An absent engine quarantines. Download uses a 60-second hash-backed,
+session-bound API capability and proxy read, rather than exposing an S3 bearer
+URL; current grants are checked again even for an already-issued capability.
+S3 SigV4 and ClamAV INSTREAM adapters use the configured private services. No
+filesystem fallback, public object ACL or simulated production scanner exists.
+
 ## Observability
 - Structured logs with correlationId and tenantId where safe; redact requester email, notes, tokens, addresses, auth headers; structured metric counts but no PHI tags.
 - Health checks: liveness and readiness for API/web/worker; queue depth, failed jobs, error rate, DB pool saturation.
