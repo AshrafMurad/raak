@@ -20,6 +20,19 @@ export const ApiEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters').optional(),
   TRUSTED_PROXY_HOSTS: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  OBJECT_STORAGE_ENDPOINT: z.url().optional(),
+  OBJECT_STORAGE_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+    .optional(),
+  OBJECT_STORAGE_ACCESS_KEY: z.string().min(1).optional(),
+  OBJECT_STORAGE_SECRET_KEY: z.string().min(1).optional(),
+  OBJECT_STORAGE_REGION: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .default('us-east-1'),
+  CLAMAV_HOST: z.string().min(1).optional(),
+  CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
 });
 
 export type ApiEnv = z.infer<typeof ApiEnvSchema>;
@@ -78,8 +91,9 @@ export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   return {
     ...parsed.data,
     trustProxyTokens: toTrustProxyTokens(hosts),
-    platformHost: parsed.data.PLATFORM_HOST
-      ?? (parsed.data.BASE_DOMAIN ? `platform.${parsed.data.BASE_DOMAIN}` : undefined),
+    platformHost:
+      parsed.data.PLATFORM_HOST ??
+      (parsed.data.BASE_DOMAIN ? `platform.${parsed.data.BASE_DOMAIN}` : undefined),
     corsOrigins,
   };
 }
