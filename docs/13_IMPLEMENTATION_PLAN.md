@@ -97,7 +97,14 @@ flowchart LR
 - Patient create/link with same-tenant duplicate suggestions, multiple-authorized-patients grants.
 - Caregiver qualification workflow (document + verified status), service authorization, regular availability and dated exceptions.
 - Private file upload + download basic controls.
-- **Exit:** F05/F06, I12/I16 pass and PHI doesn't leak in API projections.
+- **Exit (owner-approved ADR-0011):** F05/F06, E04 in AR/EN, U12, I16 and exact
+  patient/document I01 pass, with caregiver foundations and denial/race coverage;
+  PHI doesn't leak in API projections.
+
+Acceptance reconciliation **owner-approved 2026-11-02** (ADR-0011): I12
+retains its Sprint 6 visit-change meaning in `12_TEST_PLAN.md` and is not
+relabelled or claimed here. Private S3 and live email verification remain
+owner-deferred/open; this correction does not close those gates.
 
 ### Sprint 5 — Care plans and matching
 

@@ -85,6 +85,11 @@
 - **I05, I06, I15:** fully demonstrated in Sprint 1 (both staff and customer
   duplicate-email accounts for I05; I06 additionally requires tenant-host
   bound acceptance).
+- **Sprint 4 evidence:** F05/F06 and E04 in AR/EN, U12, I16 and exact I01
+  patient/document checks are recorded in `plans/sprint-04-status.md`, alongside
+  qualification/availability and race/denial coverage. ADR-0011's correction of
+  the Sprint 4 exit's I12 reference was owner-approved on 2026-11-02. I12 retains
+  its original Sprint 6 visit-change meaning and is not claimed here.
 
 ## E2E journeys — Playwright
 **E01 Agency registration:** fill form -> verify -> pending -> operator activates -> configure brand/services -> portal visible.
