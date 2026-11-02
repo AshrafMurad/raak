@@ -16,6 +16,17 @@ export const PERMISSION_ACTIONS = [
   'branding.manage',
   'requests.review',
   'quotes.manage',
+  'customers.claim',
+  'patients.read',
+  'patients.manage',
+  'patients.grants',
+  'patients.granted_read',
+  'caregivers.read',
+  'caregivers.manage',
+  'caregivers.verify',
+  'caregivers.self_read',
+  'documents.manage',
+  'documents.read_granted',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -53,9 +64,28 @@ export function authorize(
   if (principal.principalType === 'AGENCY_STAFF') {
     if (principal.tenantStatus === 'ACTIVE') {
       const admin = principal.role === 'AGENCY_OWNER' || principal.role === 'AGENCY_ADMIN';
-      if (['catalog.read', 'catalog.draft', 'requests.review', 'quotes.manage'].includes(action))
+      if (
+        [
+          'catalog.read',
+          'catalog.draft',
+          'requests.review',
+          'quotes.manage',
+          'patients.read',
+          'patients.manage',
+          'caregivers.read',
+          'caregivers.manage',
+          'documents.manage',
+        ].includes(action)
+      )
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
-      if (action === 'catalog.publish' || action === 'branding.manage') return { allowed: admin };
+      if (
+        action === 'catalog.publish' ||
+        action === 'branding.manage' ||
+        action === 'patients.grants' ||
+        action === 'caregivers.verify'
+      )
+        return { allowed: admin };
+      if (action === 'caregivers.self_read') return { allowed: principal.role === 'CAREGIVER' };
     }
     if (action === 'staff.invitations.create') {
       return {
@@ -68,7 +98,13 @@ export function authorize(
     return { allowed: false };
   }
 
-  // Customers hold no Sprint 1 actions.
+  if (principal.principalType === 'AGENCY_CUSTOMER' && principal.tenantStatus === 'ACTIVE')
+    return {
+      allowed:
+        action === 'customers.claim' ||
+        action === 'patients.granted_read' ||
+        action === 'documents.read_granted',
+    };
   return { allowed: false };
 }
 
