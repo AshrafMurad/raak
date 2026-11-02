@@ -57,6 +57,7 @@ You are implementing **Raak (رعاك)**, a multi-tenant home-care operations Sa
 - Keep domain transaction orchestration outside Express request lifecycle concerns; no external calls inside DB transaction.
 - Canonical events/enums/DTOs live in `backend/src/contracts`; frontend consumes API contracts without importing backend source. Map only at boundaries.
 - Prefer explicit small services over large generic CRUD code or premature microservices.
+- **Maintainability review:** before completing each implementation slice, use the applicable skills under the existing routing to review changed production files for responsibility growth, duplicated workflow logic and misplaced cross-domain dependencies. Treat roughly 400–500 lines as a review trigger, not a hard limit; split only where cohesive responsibilities justify it, preserving transaction, authorization and history invariants. Keep refactoring within the requested scope and report any deferred structural concern. This checkpoint supplements the skills; their selection and workflows remain governed by the existing skill instructions.
 - Patient-facing and caregiver-facing API use distinct response projections; never serialize full Prisma patient rows by default.
 
 ## Escalation conditions (must stop risky change and report)
