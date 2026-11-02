@@ -87,6 +87,10 @@ flowchart LR
 - Verified customer quote actions, coordinator request decision conditions, outbox notification.
 - Ensure no card-charge or invoice flows creep into scope.
 - **Exit:** E03 and I10/I11 pass; domain state test suite green.
+- **Status:** implemented — E03 demonstrated in AR/EN through the real browser
+  harness; I10/I11 plus denial/expiry/race matrices covered in
+  `docs/plans/sprint-03-status.md`. Live email-provider/domain delivery of the
+  new durable events remains an external gate owned by Sprint 7.
 
 ### Sprint 4 — People and access
 

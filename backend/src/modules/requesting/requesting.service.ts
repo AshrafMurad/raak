@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from 'node:crypto';
+import type { Request } from 'express';
 import type { z } from 'zod';
 import type { DatabaseClient } from '../../db/client';
 import type { Prisma } from '../../db/generated/prisma/client';
@@ -8,6 +9,7 @@ import {
   type GuestSubmission,
   type AccessLinkSchema,
 } from '../../contracts/catalog';
+import { RequestApproveSchema, RequestInfoSchema } from '../../contracts/quotes';
 import { ApiError } from '../../api-error';
 import { generateToken, hashToken } from '../auth/crypto';
 import { agencyAction, lockActiveTenant, missing, stale } from '../catalog/catalog.repository';
@@ -16,10 +18,14 @@ import { enqueueOutbox } from '../../db/outbox';
 import { sealSecret } from './secrets';
 import type { AuthState } from '../auth/guards';
 import { RequestEvents } from '../../contracts/events';
+import { loadOwnedRequest, requireViewer } from './request-viewer';
 
 export const GUEST_TOKEN_TTL_MS = 15 * 60_000;
 export const GUEST_SESSION_TTL_MS = 30 * 60_000;
 const unauthenticated = () => new ApiError(401, 'UNAUTHENTICATED', 'Verification required.');
+const invalidTransition = (message: string) =>
+  new ApiError(409, 'STATE_TRANSITION_INVALID', message);
+const OPEN_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'AWAITING_CUSTOMER'];
 const guestProjection = {
   id: true,
   reference: true,
@@ -27,7 +33,10 @@ const guestProjection = {
   submittedAt: true,
   serviceSnapshot: true,
   version: true,
-  history: { select: { toStatus: true, at: true }, orderBy: { at: 'asc' as const } },
+  history: {
+    select: { toStatus: true, reason: true, at: true },
+    orderBy: { at: 'asc' as const },
+  },
 };
 
 export function createRequestingService(
@@ -66,6 +75,78 @@ export function createRequestingService(
       aggregateId: row.id,
       payloadMinimal: { requestId },
     });
+  }
+  /** Shared coordinator/customer transition core: locks the tenant-scoped
+   * request row, validates the optimistic version, then applies one guarded
+   * state change with history/audit/outbox in the same transaction. */
+  async function transition(
+    tx: Prisma.TransactionClient,
+    options: {
+      tenantId: string;
+      requestId: string;
+      from: readonly string[];
+      to: string;
+      expectedVersion: number;
+      actorId?: string;
+      actorType?: 'AGENCY_STAFF' | 'AGENCY_CUSTOMER';
+      reason?: string;
+      action: string;
+      event: string;
+      metadata?: Prisma.InputJsonValue;
+    },
+  ) {
+    const rows = await tx.$queryRaw<
+      Array<{ id: string }>
+    >`SELECT id FROM service_requests WHERE tenant_id = ${options.tenantId}::uuid AND id = ${options.requestId}::uuid FOR UPDATE`;
+    if (!rows[0]) throw missing();
+    const request = await tx.serviceRequest.findFirst({
+      where: { tenantId: options.tenantId, id: options.requestId },
+    });
+    if (!request) throw missing();
+    if (request.version !== options.expectedVersion) throw stale();
+    if (!options.from.includes(request.status))
+      throw invalidTransition('Request cannot change from its current status.');
+    const updated = await tx.serviceRequest.update({
+      where: { tenantId_id: { tenantId: options.tenantId, id: options.requestId } },
+      data: {
+        status: options.to,
+        version: { increment: 1 },
+        ...(['APPROVED', 'REJECTED', 'WITHDRAWN'].includes(options.to)
+          ? { decisionAt: now(), decisionReason: options.reason ?? null }
+          : {}),
+        ...(options.to === 'APPROVED' || options.to === 'REJECTED'
+          ? { decisionStaffId: options.actorId ?? null }
+          : {}),
+      },
+      select: { id: true, status: true, version: true },
+    });
+    await tx.requestStatusHistory.create({
+      data: {
+        tenantId: options.tenantId,
+        requestId: options.requestId,
+        fromStatus: request.status,
+        toStatus: options.to,
+        ...(options.actorId ? { actorId: options.actorId } : {}),
+        ...(options.reason ? { reason: options.reason } : {}),
+        at: now(),
+      },
+    });
+    await appendAudit(tx, {
+      tenantId: options.tenantId,
+      ...(options.actorType ? { actorType: options.actorType } : {}),
+      ...(options.actorId ? { actorId: options.actorId } : {}),
+      action: options.action,
+      subjectType: 'service_request',
+      subjectId: options.requestId,
+      metadata: options.metadata ?? {},
+    });
+    await enqueueOutbox(tx, {
+      tenantId: options.tenantId,
+      eventType: options.event,
+      aggregateId: options.requestId,
+      payloadMinimal: {},
+    });
+    return updated;
   }
   return {
     submit: (tenantId: string, input: GuestSubmission, idempotencyKey: string) =>
@@ -220,21 +301,25 @@ export function createRequestingService(
         });
         return { sessionToken, requestId: row.requestId };
       }),
-    guestRead: (tenantId: string, secret: string | undefined, requestId?: string) =>
+    portalRead: (tenantId: string, req: Request, requestId?: string) =>
       db.$transaction(async (tx) => {
         await lockActiveTenant(tx, tenantId);
-        if (!secret) throw unauthenticated();
-        const session = await tx.guestSession.findFirst({
-          where: { tenantId, secretHash: hashToken(secret), expiresAt: { gt: now() } },
-        });
-        if (!session) throw unauthenticated();
-        if (requestId && requestId !== session.requestId) throw missing();
-        const row = await tx.serviceRequest.findFirst({
-          where: { tenantId, id: session.requestId },
+        const viewer = await requireViewer(tx, tenantId, req, now);
+        if (requestId) await loadOwnedRequest(tx, viewer, tenantId, requestId);
+        const rows = await tx.serviceRequest.findMany({
+          where: {
+            tenantId,
+            ...(requestId ? { id: requestId } : {}),
+            ...(viewer.kind === 'GUEST'
+              ? { id: viewer.guestRequestId! }
+              : { customerAccountId: viewer.customerAccountId! }),
+          },
+          orderBy: { submittedAt: 'desc' },
+          take: 100,
           select: guestProjection,
         });
-        if (!row) throw missing();
-        return requestId ? row : [row];
+        if (requestId && !rows[0]) throw missing();
+        return requestId ? rows[0] : rows;
       }),
     queue: (auth: AuthState, cursor?: string, status?: string) =>
       db.$transaction(async (tx) => {
@@ -318,6 +403,118 @@ export function createRequestingService(
         });
         return updated;
       }),
+    requestInfo: (auth: AuthState, id: string, input: z.infer<typeof RequestInfoSchema>) =>
+      db.$transaction(async (tx) => {
+        const tenantId = await agencyAction(tx, auth, 'requests.review');
+        return transition(tx, {
+          tenantId,
+          requestId: id,
+          from: ['UNDER_REVIEW'],
+          to: 'AWAITING_CUSTOMER',
+          expectedVersion: input.expectedVersion,
+          actorId: auth.session.principalId,
+          actorType: 'AGENCY_STAFF',
+          reason: input.note,
+          action: 'request.info_needed',
+          event: RequestEvents.INFO_NEEDED,
+        });
+      }),
+    respond: (tenantId: string, req: Request, id: string, note: string) =>
+      db.$transaction(async (tx) => {
+        await lockActiveTenant(tx, tenantId);
+        const viewer = await requireViewer(tx, tenantId, req, now);
+        const owned = await loadOwnedRequest(tx, viewer, tenantId, id);
+        return transition(tx, {
+          tenantId,
+          requestId: id,
+          from: ['AWAITING_CUSTOMER'],
+          to: 'UNDER_REVIEW',
+          expectedVersion: owned.version,
+          ...(viewer.kind === 'CUSTOMER' && viewer.customerAccountId
+            ? { actorId: viewer.customerAccountId, actorType: 'AGENCY_CUSTOMER' as const }
+            : {}),
+          reason: note,
+          action: 'request.responded',
+          event: RequestEvents.RESPONDED,
+        });
+      }),
+    approve: (auth: AuthState, id: string, input: z.infer<typeof RequestApproveSchema>) =>
+      db.$transaction(async (tx) => {
+        const tenantId = await agencyAction(tx, auth, 'requests.review');
+        const request = await tx.serviceRequest.findFirst({
+          where: { tenantId, id },
+          select: { status: true, version: true, priceAcknowledged: true, serviceSnapshot: true },
+        });
+        if (!request) throw missing();
+        const snapshot = request.serviceSnapshot as {
+          pricingType?: string;
+          priceMinor?: number | null;
+        };
+        const latestOffer = await tx.quote.findFirst({
+          where: { tenantId, requestId: id, status: { not: 'DRAFT' } },
+          orderBy: { version: 'desc' },
+          select: { id: true, status: true },
+        });
+        let commercial: 'FIXED_ACK' | 'QUOTE';
+        if (snapshot.pricingType === 'FIXED' && !latestOffer) {
+          // A published formal offer replaces the original acknowledgment as
+          // the approval prerequisite, even if it later expires/is rejected.
+          if (!request.priceAcknowledged || snapshot.priceMinor == null)
+            throw invalidTransition('Fixed-price acknowledgment is required before approval.');
+          commercial = 'FIXED_ACK';
+        } else {
+          if (latestOffer?.status !== 'ACCEPTED')
+            throw invalidTransition('An accepted quote is required before approval.');
+          commercial = 'QUOTE';
+        }
+        return transition(tx, {
+          tenantId,
+          requestId: id,
+          from: ['UNDER_REVIEW'],
+          to: 'APPROVED',
+          expectedVersion: input.expectedVersion,
+          actorId: auth.session.principalId,
+          actorType: 'AGENCY_STAFF',
+          action: 'request.approved',
+          event: RequestEvents.APPROVED,
+          metadata: { commercial },
+        });
+      }),
+    reject: (auth: AuthState, id: string, expectedVersion: number, reason: string) =>
+      db.$transaction(async (tx) => {
+        const tenantId = await agencyAction(tx, auth, 'requests.review');
+        return transition(tx, {
+          tenantId,
+          requestId: id,
+          from: OPEN_STATUSES,
+          to: 'REJECTED',
+          expectedVersion,
+          actorId: auth.session.principalId,
+          actorType: 'AGENCY_STAFF',
+          reason,
+          action: 'request.rejected',
+          event: RequestEvents.REJECTED,
+        });
+      }),
+    withdraw: (tenantId: string, req: Request, id: string, reason: string) =>
+      db.$transaction(async (tx) => {
+        await lockActiveTenant(tx, tenantId);
+        const viewer = await requireViewer(tx, tenantId, req, now);
+        const owned = await loadOwnedRequest(tx, viewer, tenantId, id);
+        return transition(tx, {
+          tenantId,
+          requestId: id,
+          from: OPEN_STATUSES,
+          to: 'WITHDRAWN',
+          expectedVersion: owned.version,
+          ...(viewer.kind === 'CUSTOMER' && viewer.customerAccountId
+            ? { actorId: viewer.customerAccountId, actorType: 'AGENCY_CUSTOMER' as const }
+            : {}),
+          ...(reason ? { reason } : {}),
+          action: 'request.withdrawn',
+          event: RequestEvents.WITHDRAWN,
+        });
+      }),
     notifications: (auth: AuthState) =>
       db.$transaction(async (tx) => {
         const tenantId = await agencyAction(tx, auth, 'requests.review');
@@ -325,7 +522,7 @@ export function createRequestingService(
           where: { tenantId, staffId: auth.session.principalId },
           orderBy: { createdAt: 'desc' },
           take: 100,
-          select: { id: true, requestId: true, readAt: true, createdAt: true },
+          select: { id: true, requestId: true, eventType: true, readAt: true, createdAt: true },
         });
       }),
   };

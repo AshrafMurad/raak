@@ -7,6 +7,8 @@ import arPlatform from '../messages/ar/platform.json';
 import enPlatform from '../messages/en/platform.json';
 import arDesignPreview from '../messages/ar/design-preview.json';
 import enDesignPreview from '../messages/en/design-preview.json';
+import arCommercial from '../messages/ar/commercial.json';
+import enCommercial from '../messages/en/commercial.json';
 import {
   DEFAULT_LOCALE,
   LOCALE_DIRECTION,
@@ -32,6 +34,7 @@ describe('dictionaries', () => {
       [arAuth, enAuth],
       [arPlatform, enPlatform],
       [arDesignPreview, enDesignPreview],
+      [arCommercial, enCommercial],
     ]) {
       expect(keyPaths(english).sort()).toEqual(keyPaths(arabic).sort());
     }
@@ -47,6 +50,8 @@ describe('dictionaries', () => {
       enPlatform,
       arDesignPreview,
       enDesignPreview,
+      arCommercial,
+      enCommercial,
     ]) {
       for (const path of keyPaths(dictionary)) {
         const parts = path.split('.');

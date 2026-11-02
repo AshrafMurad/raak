@@ -1,5 +1,6 @@
-// Raak — Sprint 1 identity/control plane and Sprint 2 catalog/guest intake.
-// Commercial, patient, plan and visit tables arrive in their owning sprints.
+// Raak — Sprint 1 identity/control plane, Sprint 2 catalog/guest intake and
+// Sprint 3 commercial quotes. Patient, plan and visit tables arrive in their
+// owning sprints.
 
 generator client {
   provider = "prisma-client"
@@ -286,6 +287,7 @@ model ServiceRequest {
   tenantId                 String                 @map("tenant_id") @db.Uuid
   agencyServiceId          String                 @map("agency_service_id") @db.Uuid
   service                  AgencyService          @relation(fields: [tenantId, agencyServiceId], references: [tenantId, id])
+  customerAccountId        String?                @map("customer_account_id") @db.Uuid
   reference                String
   idempotencyKey           String                 @map("idempotency_key")
   payloadHash              String                 @map("payload_hash")
@@ -297,17 +299,21 @@ model ServiceRequest {
   areaId                   String                 @map("area_id")
   preferredWindowJson      Json                   @map("preferred_window_json")
   notesRestricted          String                 @map("notes_restricted")
-  locale                   String
-  privacyVersion           String                 @map("privacy_version")
-  serviceSnapshot          Json                   @map("service_snapshot")
-  priceAcknowledged        Boolean                @map("price_acknowledged")
-  status                   String                 @default("SUBMITTED")
-  version                  Int                    @default(1)
-  submittedAt              DateTime               @default(now()) @map("submitted_at")
-  tokens                   GuestActionToken[]
-  sessions                 GuestSession[]
-  history                  RequestStatusHistory[]
-  notifications            RequestNotification[]
+  locale               String
+  privacyVersion       String                 @map("privacy_version")
+  serviceSnapshot      Json                   @map("service_snapshot")
+  priceAcknowledged    Boolean                @map("price_acknowledged")
+  status               String                 @default("SUBMITTED")
+  version              Int                    @default(1)
+  decisionAt           DateTime?              @map("decision_at")
+  decisionStaffId      String?                @map("decision_staff_id") @db.Uuid
+  decisionReason       String?                @map("decision_reason")
+  submittedAt          DateTime               @default(now()) @map("submitted_at")
+  tokens               GuestActionToken[]
+  sessions             GuestSession[]
+  history              RequestStatusHistory[]
+  notifications        RequestNotification[]
+  quotes               Quote[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, reference])
@@ -324,6 +330,7 @@ model RequestStatusHistory {
   fromStatus String?        @map("from_status")
   toStatus   String         @map("to_status")
   actorId    String?        @map("actor_id") @db.Uuid
+  reason     String?
   at         DateTime       @default(now())
 
   @@index([tenantId, requestId])
@@ -365,10 +372,11 @@ model RequestNotification {
   request   ServiceRequest @relation(fields: [tenantId, requestId], references: [tenantId, id])
   staffId   String         @map("staff_id") @db.Uuid
   staff     StaffAccount   @relation(fields: [tenantId, staffId], references: [tenantId, id])
+  eventType String         @default("REQUEST_NEW") @map("event_type")
   readAt    DateTime?      @map("read_at")
   createdAt DateTime       @default(now()) @map("created_at")
 
-  @@unique([tenantId, requestId, staffId])
+  @@unique([tenantId, requestId, staffId, eventType])
   @@map("request_notifications")
 }
 
@@ -385,4 +393,79 @@ model EmailDelivery {
 
   @@index([status, retryAt])
   @@map("email_deliveries")
+}
+
+/// docs 04 BR-QTE / docs 06 — versioned commercial offers. All versions of a
+/// request's offer share quoteGroupId; content freezes at SENT (only state
+/// timestamps change afterwards). One effective SENT and at most one DRAFT per
+/// group are enforced by partial unique indexes in the Sprint 3 migration.
+model Quote {
+  id              String                @id @default(uuid()) @db.Uuid
+  tenantId        String                @map("tenant_id") @db.Uuid
+  requestId       String                @map("request_id") @db.Uuid
+  request         ServiceRequest        @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  quoteGroupId    String                @map("quote_group_id") @db.Uuid
+  version         Int
+  rowVersion      Int                   @default(1) @map("row_version")
+  status          String                @default("DRAFT")
+  currency        String                @db.Char(3)
+  lineItems       Json                  @map("line_items_snapshot")
+  totalMinor      Int                   @map("total_minor")
+  terms           String
+  validUntil      DateTime?             @map("valid_until")
+  sentAt          DateTime?             @map("sent_at")
+  acceptedAt      DateTime?             @map("accepted_at")
+  rejectedAt      DateTime?             @map("rejected_at")
+  acceptedByType  String?               @map("accepted_by_type")
+  acceptedById    String?               @map("accepted_by_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  revisionTargets QuoteRevisionRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, quoteGroupId, version])
+  @@index([tenantId, requestId, version])
+  @@index([tenantId, quoteGroupId, status])
+  @@map("quotes")
+}
+
+/// docs 04 BR-QTE — customer revision requests; one PENDING per quoteGroup is
+/// enforced by a partial unique index. While PENDING, acceptance is disabled.
+model QuoteRevisionRequest {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  quoteGroupId    String   @map("quote_group_id") @db.Uuid
+  quoteId         String   @map("quote_id") @db.Uuid
+  quote           Quote    @relation(fields: [tenantId, quoteId], references: [tenantId, id])
+  message         String
+  status          String   @default("PENDING")
+  requestedByType String   @map("requested_by_type")
+  requestedById   String?  @map("requested_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  resolvedAt      DateTime? @map("resolved_at")
+  resolvedBy      String?  @map("resolved_by") @db.Uuid
+  declineReason   String?  @map("decline_reason")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, quoteGroupId])
+  @@index([tenantId, quoteId])
+  @@map("quote_revision_requests")
+}
+
+/// docs 06 — replay-safe high-impact customer actions (quote accept).
+/// principalId is `customer:<accountId>` or `guest:<sessionId>`; only a safe
+/// response summary is stored, never the full payload.
+model IdempotencyKey {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  principalId     String   @map("principal_id")
+  key             String
+  requestHash     String   @map("request_hash")
+  responseSummary Json     @map("response_summary")
+  createdAt       DateTime @default(now()) @map("created_at")
+  expiresAt       DateTime @map("expires_at")
+
+  @@unique([tenantId, principalId, key])
+  @@index([tenantId, expiresAt])
+  @@map("idempotency_keys")
 }

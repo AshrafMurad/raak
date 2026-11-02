@@ -360,6 +360,8 @@ it('allows only the initial review transition and commits one concurrent winner'
   expect(
     await db.requestStatusHistory.count({ where: { tenantId, toStatus: 'UNDER_REVIEW' } }),
   ).toBe(1);
+  // Sprint 3 implements the decision route; an empty body fails validation
+  // before any state change (the request stays UNDER_REVIEW).
   expect(
     (
       await request(app)
@@ -369,7 +371,7 @@ it('allows only the initial review transition and commits one concurrent winner'
         .set('X-CSRF-Token', csrf)
         .send({})
     ).status,
-  ).toBe(404);
+  ).toBe(422);
 });
 it('denies caregiver privileges, cross-tenant IDs and missing CSRF', async () => {
   const staff = await db.staffAccount.create({

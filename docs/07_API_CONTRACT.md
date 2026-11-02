@@ -77,7 +77,8 @@ agency branding GET/PATCH; public service list/detail; guest submission and
 access-link issue/consume; request-only guest list/detail; coordinator request
 queue/detail/start-review; and the minimal coordinator new-request notification
 projection. ADR-0010 assigns only SUBMITTED → UNDER_REVIEW to this sprint.
-Other request transitions and commercial actions below remain future work.
+Sprint 3 implements the remaining request decisions and commercial workflows
+below; both slices now share the same tenant/verification/CSRF boundary.
 
 Canonical input schemas: `backend/src/contracts/catalog.ts`. Unknown body fields
 are rejected. Protected agency operations use session + CSRF + central policy,
@@ -179,14 +180,16 @@ rechecked against the current staff/tenant at the transactional service boundary
 
 #### Initial review and notification projection
 
-- Queue GET: `{items,nextCursor}`, 20 per page, optional SUBMITTED/UNDER_REVIEW
-  filter and UUID cursor. Owner/Admin/Coordinator only. List omits contact,
-  beneficiary and notes; authorized detail includes the minimal intake data.
+- Queue GET: `{items,nextCursor}`, 20 per page, optional status filter (any
+  documented request status) and UUID cursor. Owner/Admin/Coordinator only.
+  List omits contact, beneficiary and notes; authorized detail includes the
+  minimal intake data.
 - Start-review POST: `{expectedVersion}` → `{id,status:"UNDER_REVIEW",version}`.
   Only SUBMITTED can transition; concurrent losers receive 409; one history,
-  audit and outbox write commits. Later decision endpoints remain unimplemented.
-- `/notifications` currently returns up to 100 safe new-request notification
-  references for the current authorized coordinator/staff principal only.
+   audit and outbox write commits. Sprint 3 implements the decision endpoints below.
+- `/notifications` currently returns up to 100 safe notification references for
+  the current authorized coordinator/staff principal only, tagged with
+  `eventType` (`REQUEST_NEW`, `QUOTE_RESPONSE`, `QUOTE_REVISION_REQUESTED`).
   Full notification inbox/read-policy management remains Sprint 7.
 - `VERSION_CONFLICT` is added to the error registry for catalog/branding/request
   optimistic concurrency; other status meanings remain unchanged.
@@ -207,12 +210,113 @@ rechecked against the current staff/tenant at the transactional service boundary
 | POST | `/agency/requests/:id/reject` | Reason required |
 | POST | `/portal/my/requests/:id/withdraw` | Allowed prior to approval |
 
+### Sprint 3 implementation — request decisions and commercial acceptance
+
+All Sprint 3 routes below are implemented and covered by integration and
+browser tests. Unknown body fields are rejected; monetary values are integer
+minor units in the tenant currency and totals are always computed server-side.
+Protected agency operations use session + CSRF + the central policy
+(`quotes.manage` = Owner/Admin/Coordinator; request decisions use
+`requests.review`) rechecked at the transactional service boundary. Portal
+actions authorize only through a fresh guest session bound to that exact
+request, or a customer account the request row itself names; everything else is
+404 (no enumeration). Guest-cookie portal mutations share the same same-origin
+guard as Sprint 2 intake.
+
+Linked customer accounts are resolved from the agency session cookie inside the
+workflow transaction (including current account/session state and verified email),
+with `X-CSRF-Token` required for mutations. Request list/detail uses the same
+ownership check and safe projection as quotes; the customer list is bounded to
+the 100 most recent linked requests. Self-registration/claiming remains Sprint 4.
+
+Request decisions:
+
+- `POST /agency/requests/:id/request-info` `{expectedVersion, note(5..500)}`:
+  only UNDER_REVIEW → AWAITING_CUSTOMER; the note is stored on the status
+  history row shown to the verified requester (no email body content).
+- `POST /portal/my/requests/:id/respond` `{note(1..500)}`: only
+  AWAITING_CUSTOMER → UNDER_REVIEW for the verified requester.
+- `POST /agency/requests/:id/approve` `{expectedVersion, feasibilityConfirmed:true}`:
+  only UNDER_REVIEW → APPROVED. Prerequisites enforced in-transaction: for
+   FIXED pricing with no issued formal quote, the immutable submission-time
+   acknowledgment snapshot (`priceAcknowledged` + snapshot price/unit/currency).
+   Once any formal quote has been issued, the latest non-DRAFT offer must be
+   ACCEPTED, including for originally FIXED pricing; expired/rejected terms never
+   silently restore the original acknowledgment. STARTING_FROM and CUSTOM_QUOTE
+   likewise require an ACCEPTED quote version. Approval creates no patient, plan or
+  visit. Missing prerequisites return `409 STATE_TRANSITION_INVALID`.
+- `POST /agency/requests/:id/reject` `{expectedVersion, reason(5..500)}`:
+  terminal from any open status; reason recorded on history/audit.
+- `POST /portal/my/requests/:id/withdraw` `{reason?(<=500)}`: terminal from any
+  open status for the verified requester.
+- All transitions lock the tenant row then the request row, validate
+  `expectedVersion` (`409 VERSION_CONFLICT` on stale), and commit status
+  history + audit + outbox event atomically. Verified request reads now include
+  each history entry's stored `reason`.
+
+Quotes (single `quoteGroupId` per request; versions strictly increase):
+
+All line amounts and the computed aggregate total are capped at **2147483647
+minor units**, matching PostgreSQL INTEGER persistence. Larger payloads return
+422 before database writes. After acceptance, new drafts, edits, sends and
+replacement publication are refused (409); post-acceptance amendments remain
+outside V1. A partial unique index also guarantees one ACCEPTED quote per request.
+
+- `POST /agency/requests/:id/quotes` `{lineItems:[{description(1..300),
+  quantity(1..10000), unitPriceMinor(0..100000000)}](1..20), terms(1..3000)}`
+  → 201 DRAFT of version max+1. One open DRAFT per group
+  (`409 STATE_TRANSITION_INVALID` otherwise); terminal requests refuse drafts.
+- `PATCH /agency/quotes/:id/draft` `{expectedVersion(rowVersion), lineItems?,
+  terms?}` — DRAFT only; content is fully replaceable until send.
+- `POST /agency/quotes/:id/send` `{expectedVersion, validForHours(1..2160),
+  lineItems?, terms?}` — freezes the snapshot (`validUntil`/`sentAt`
+  server-owned; an absolute client timestamp is never accepted), supersedes the
+  current effective SENT version, resolves any PENDING revision, writes
+  `quote.sent`/`quote.revision_sent` outbox + audit. One effective SENT per
+  group is guaranteed by a partial unique index.
+- `GET /agency/requests/:id/quotes` — full agency history including drafts
+  (`rawStatus`, `rowVersion` for optimistic edits).
+- `GET /portal/my/requests/:id/quotes` — verified requester history; drafts are
+   never serialized to customers; effective status reflects wall-clock expiry.
+   Each quote includes `revisionPending:boolean`, enabling disabled accept/reject/
+   revision controls across page reloads while the server retains final authority.
+- `POST /portal/my/quotes/:id/accept` `{quoteVersion}` + required
+  `Idempotency-Key` (16–128 `[A-Za-z0-9_-]`): only the newest effective SENT,
+  unexpired, with no PENDING revision and an open request; explicit version
+  consent (`409 VERSION_CONFLICT` on mismatch). Same key replays the stored
+  safe summary; different payload for a used key is `409 IDEMPOTENCY_CONFLICT`.
+  Repeated acceptance returns the stable already-accepted result; exactly one
+  audit row and one `quote.responded` outbox event are emitted (I11).
+- `POST /portal/my/quotes/:id/reject` `{quoteVersion}` — same guards minus the
+  key; repeated rejection is stable.
+- `POST /portal/my/quotes/:id/revision-requests` `{quoteVersion,
+  message(10..1000)}` — one PENDING per group; acceptance is blocked with
+  `409 QUOTE_REVISION_PENDING` while pending (U11).
+- `GET /agency/quotes/:id/revision-requests` — group history.
+- `POST /agency/quote-revisions/:id/decline` `{reason(5..500)}` — PENDING →
+  DECLINED; the effective offer becomes actionable again only if still valid.
+- `POST /agency/quote-revisions/:id/resolve-with-replacement`
+  `{validForHours, lineItems, terms}` — one transaction: revision RESOLVED,
+  prior SENT SUPERSEDED, replacement version SENT (an open draft is converted,
+   otherwise version max+1 is created), `quote.revision_sent` outbox + audit.
+   Both this route and generic draft send refuse replacement of a pending
+   revision's expired offer, including the exact `validUntil` boundary.
+
+Error codes produced: `QUOTE_EXPIRED`, `QUOTE_SUPERSEDED`,
+`QUOTE_REVISION_PENDING`, `STATE_TRANSITION_INVALID`, `VERSION_CONFLICT`,
+`IDEMPOTENCY_CONFLICT`, `RESOURCE_NOT_FOUND` (wrong tenant/request/quote),
+`UNAUTHENTICATED`, `TENANT_INACTIVE`. Expiry is enforced by wall-clock check on
+every read/action path and lazily persisted — it never depends on a queued job
+(docs 04 BR-QTE). Quote projections contain only id/version/status/currency/
+total/line items/terms/validity/timestamps — no contact, beneficiary or notes.
 ## Quotes and commercial acceptance
+
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/agency/requests/:id/quotes` | Create first draft/version |
 | PATCH | `/agency/quotes/:id/draft` | Modify DRAFT only |
 | POST | `/agency/quotes/:id/send` | Freeze snapshot, publish version, create outbox |
+| GET | `/agency/requests/:id/quotes` | Agency version history incl. drafts (Sprint 3) |
 | GET | `/portal/my/requests/:id/quotes` | Verified requester history, no other requests |
 | POST | `/portal/my/quotes/:id/accept` | Latest SENT, unexpired, not revision-pending |
 | POST | `/portal/my/quotes/:id/reject` | Latest SENT, unexpired |
@@ -221,11 +325,15 @@ rechecked against the current staff/tenant at the transactional service boundary
 | POST | `/agency/quote-revisions/:id/decline` | Reason and re-enable previous if valid |
 | POST | `/agency/quote-revisions/:id/resolve-with-replacement` | New version sent atomically, old superseded |
 
+Sprint 3 implements every route above; exact DTO shapes, validation bounds,
+idempotency and error semantics are documented in the Sprint 3 section of
+"Requests and guest access".
+
 ### Quote send DTO (illustrative)
 ```json
-{"expectedVersion":1,"validUntil":"2026-11-30T20:59:59Z","lineItems":[{"serviceId":"<uuid>","description":"12 home visits","quantity":12,"unitPriceMinor":15000}],"terms":"Scope, exclusions, and confirmation terms"}
+{"expectedVersion":1,"validForHours":72,"lineItems":[{"description":"12 home visits","quantity":12,"unitPriceMinor":15000}],"terms":"Scope, exclusions, and confirmation terms"}
 ```
-Total is **calculated server-side** from trusted validated line items; no client-controlled `totalMinor` accepted. Quote read returns currency, total, version, effectiveStatus, price terms, expiry; does not contain care notes.
+Total is **calculated server-side** from trusted validated line items; no client-controlled `totalMinor` is accepted, and validity is requested as a bounded relative window so the stored `validUntil` is always a server-owned UTC instant. Quote read returns currency, total, version, effectiveStatus, price terms, expiry; does not contain care notes.
 
 ## Patients and customer grants
 | Method | Path | Purpose |

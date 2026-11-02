@@ -66,13 +66,22 @@
   Sprint 2.
 - **E02 (ADR-0010):** Sprint 2 includes coordinator queue/detail and only
   SUBMITTED → UNDER_REVIEW; the complete E02 journey remains required in AR/EN.
+- **E03, I10, I11:** demonstrated in Sprint 3 — E03 in Arabic and English
+  through the real browser harness (quote v1 → revision pending blocks
+  acceptance → replacement v2 → superseded v1 acceptance denied → idempotent
+  v2 acceptance with a single outbox emission → coordinator approval), plus
+  API-level denial/expiry/race matrices in
+  `backend/test/commercial/quotes.integration.test.ts`.
 - **I01:** exact patient/visit/document object-by-ID isolation is mandatory
   and demonstrated in the owning domain sprints (patients/documents Sprint 4,
   visits Sprints 5–6) and in the release gates. Sprint 1 demonstrates the
   boundary it owns: host-realm isolation and session isolation
   (cross-host/wrong-tenant session denial, wrong-host invitation acceptance,
-  suspension revoking sessions). Sprint 1 contains no patient/visit/document
-  objects, so object-by-ID cases cannot exist there yet.
+  suspension revoking sessions). Sprint 3 demonstrates the same boundary for
+  its own objects (cross-tenant request/quote/revision by ID is 404; a guest
+  session of one request cannot act on another request's quotes).
+  Sprint 1 contains no patient/visit/document objects, so object-by-ID cases
+  cannot exist there yet.
 - **I05, I06, I15:** fully demonstrated in Sprint 1 (both staff and customer
   duplicate-email accounts for I05; I06 additionally requires tenant-host
   bound acceptance).

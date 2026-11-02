@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "tsx test/browser/sprint2.e2e.ts",
+    "test:browser:sprint3": "tsx test/browser/sprint3.e2e.ts",
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate": "prisma migrate deploy",

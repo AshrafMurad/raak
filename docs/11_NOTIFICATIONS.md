@@ -71,6 +71,20 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 
 ## Tests
 
+### Implemented Sprint 3 durable events
+
+`QuoteEvents` in `backend/src/contracts/events.ts` adds `quote.sent`,
+`quote.responded`, `quote.revision_requested` and `quote.revision_sent`;
+request decisions add `request.info_needed`, `request.responded`,
+`request.approved`, `request.rejected` and `request.withdrawn`. Payloads carry
+`{requestId, quoteId?}` only. All are committed atomically with their state
+transition. Coordinator in-app `RequestNotification` rows are extended with an
+`eventType` column (`REQUEST_NEW`, `QUOTE_RESPONSE`,
+`QUOTE_REVISION_REQUESTED`) with a per-(request,staff,event) unique. The
+dedicated request-email worker still consumes only access-link delivery; email
+rendering for quote/request events stays with the Sprint 7 notification matrix
+(events remain durable and unacknowledged, never discarded).
+
 ### Implemented Sprint 2 delivery slice
 
 `RequestEvents` in `backend/src/contracts/events.ts` maps the generic receipt /

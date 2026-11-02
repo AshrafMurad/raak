@@ -64,6 +64,7 @@
   "queue": "Request queue",
   "detail": "Request detail",
   "startReview": "Start review",
+  "manageRequest": "Manage request",
   "close": "Close",
   "notifications": "New request notifications",
   "branding": "Portal branding",

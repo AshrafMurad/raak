@@ -13,6 +13,7 @@ import { StatusBadge } from '../../components/ui/status-badge';
 import { CatalogFrame } from './frame';
 import { catalogCopy, localized } from './copy';
 import type { RequestView } from './contracts';
+import { PortalQuotes, PortalRequestActions } from '../commercial/portal-quotes';
 
 export function GuestTracking({ locale }: { locale: Locale }) {
   const c = catalogCopy(locale);
@@ -75,24 +76,46 @@ export function GuestTracking({ locale }: { locale: Locale }) {
     <CatalogFrame locale={locale} path="/track">
       <h1>{view ? c.verified : c.track}</h1>
       {view ? (
-        <section className="raak-card">
-          <h2>{localized(view.serviceSnapshot, locale)}</h2>
-          <bdi>{view.reference}</bdi>
-          <p>{c.notConfirmed}</p>
-          <StatusBadge tone={view.status === 'UNDER_REVIEW' ? 'in_progress' : 'planned'}>
-            {c[view.status as 'SUBMITTED'] ?? view.status}
-          </StatusBadge>
-          <ol>
-            {view.history.map((h, i) => (
-              <li key={i}>
-                {c[h.toStatus as 'SUBMITTED'] ?? h.toStatus} ·{' '}
-                <bdi>
-                  {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(h.at))}
-                </bdi>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <>
+          <section className="raak-card">
+            <h2>{localized(view.serviceSnapshot, locale)}</h2>
+            <bdi>{view.reference}</bdi>
+            <p>{c.notConfirmed}</p>
+            <StatusBadge tone={view.status === 'UNDER_REVIEW' ? 'in_progress' : 'planned'}>
+              {c[view.status as 'SUBMITTED'] ?? view.status}
+            </StatusBadge>
+            <ol>
+              {view.history.map((h, i) => (
+                <li key={i}>
+                  {c[h.toStatus as 'SUBMITTED'] ?? h.toStatus} ·{' '}
+                  <bdi>
+                    {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+                      new Date(h.at),
+                    )}
+                  </bdi>
+                  {h.reason ? <p>{h.reason}</p> : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+          <PortalRequestActions
+            locale={locale}
+            requestId={view.id}
+            status={view.status}
+            onDone={() =>
+              startTransition(async () => {
+                try {
+                  setView(await apiRequest<RequestView>(`/portal/my/requests/${view.id}`));
+                } catch {
+                  setMessage(c.error);
+                }
+              })
+            }
+          />
+          {['UNDER_REVIEW', 'AWAITING_CUSTOMER', 'APPROVED'].includes(view.status) ? (
+            <PortalQuotes locale={locale} requestId={view.id} />
+          ) : null}
+        </>
       ) : (
         <>
           {token ? (
