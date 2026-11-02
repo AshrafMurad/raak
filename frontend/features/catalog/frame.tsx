@@ -7,6 +7,7 @@ import { PortalShell } from '../../components/layout/portal-shell';
 import { Button } from '../../components/ui/button';
 import { ThemeContext } from '../../components/ui/theme';
 import { catalogCopy } from './copy';
+import { peopleCopy } from '../people/copy';
 
 export function CatalogFrame({
   locale,
@@ -47,6 +48,7 @@ export function CatalogFrame({
               <nav className="raak-actions">
                 <Link href={`/${locale}/services`}>{c.services}</Link>
                 <Link href={`/${locale}/track`}>{c.track}</Link>
+                <Link href={`/${locale}/account`}>{peopleCopy(locale).account}</Link>
                 <Link href={`/${locale}/workspace/services`}>{c.workspace}</Link>
                 <Link href={`/${locale === 'ar' ? 'en' : 'ar'}${path}`}>{c.language}</Link>
                 <Button
