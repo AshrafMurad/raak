@@ -1,5 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { peopleCopy } from '../people/copy';
 import type { Locale } from '../../lib/i18n';
 import { ApiRequestError, apiRequest } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
@@ -187,6 +189,13 @@ export function RequestManagement({ locale, requestId }: { locale: Locale; reque
           >
             {requestStatusLabel(c, request.status)}
           </StatusBadge>
+          {request.status === 'APPROVED' ? (
+            <p>
+              <Link href={`/${locale}/workspace/patients?request=${requestId}`}>
+                {peopleCopy(locale).approvedRequest}
+              </Link>
+            </p>
+          ) : null}
           <p>
             {request.requesterName} · <bdi dir="ltr">{request.requesterEmailNormalized}</bdi>
           </p>
