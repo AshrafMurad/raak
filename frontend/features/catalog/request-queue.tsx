@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import type { Locale } from '../../lib/i18n';
 import { apiRequest } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
@@ -152,6 +153,11 @@ export function RequestQueue({ locale }: { locale: Locale }) {
             ) : null}
           </div>
           <div className="rv-dialog-footer">
+            {selected ? (
+              <Button variant="secondary" asChild>
+                <Link href={`/${locale}/workspace/requests/${selected.id}`}>{c.manageRequest}</Link>
+              </Button>
+            ) : null}
             {selected?.status === 'SUBMITTED' ? (
               <Button
                 disabled={pending}

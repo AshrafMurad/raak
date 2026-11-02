@@ -45,7 +45,7 @@ export interface RequestView {
   submittedAt: string;
   serviceSnapshot: ServiceConfig & { currency: string };
   version: number;
-  history: { toStatus: string; at: string }[];
+  history: { toStatus: string; at: string; reason?: string | null }[];
   requesterName?: string;
   requesterEmailNormalized?: string;
   requesterPhone?: string;
