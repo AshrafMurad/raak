@@ -40,7 +40,9 @@ export function createAuthService(deps: AuthServiceDeps) {
   async function consumeEmailToken(
     token: string,
     purpose: 'OWNER_VERIFICATION' | 'PASSWORD_RESET',
-  ): Promise<{ row: { id: string; principalType: string; principalId: string; tenantId: string | null } }> {
+  ): Promise<{
+    row: { id: string; principalType: string; principalId: string; tenantId: string | null };
+  }> {
     const row = await db.emailToken.findUnique({ where: { tokenHash: hashToken(token) } });
     if (!row || row.purpose !== purpose) {
       throw new ApiError(401, 'UNAUTHENTICATED', 'This link is not valid.');
@@ -82,11 +84,14 @@ export function createAuthService(deps: AuthServiceDeps) {
   ): Promise<number | null> {
     let rows: Array<{ sessionVersion: number }>;
     if (row.principalType === 'PLATFORM_OPERATOR') {
-      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "platform_operators" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+      rows =
+        await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "platform_operators" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
     } else if (row.principalType === 'AGENCY_STAFF') {
-      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "staff_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+      rows =
+        await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "staff_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
     } else {
-      rows = await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "customer_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
+      rows =
+        await tx.$queryRaw`SELECT "session_version" AS "sessionVersion" FROM "customer_accounts" WHERE "id" = ${row.principalId}::uuid FOR UPDATE`;
     }
     return rows[0]?.sessionVersion ?? null;
   }
@@ -111,14 +116,22 @@ export function createAuthService(deps: AuthServiceDeps) {
       });
     },
 
-    async login(realm: AcceptedRealm, emailRaw: string, password: string): Promise<{ created: CreatedSession; me: AuthMeDto }> {
+    async login(
+      realm: AcceptedRealm,
+      emailRaw: string,
+      password: string,
+      audience: 'AUTO' | 'CUSTOMER' = 'AUTO',
+    ): Promise<{ created: CreatedSession; me: AuthMeDto }> {
       const email = emailRaw.trim().toLowerCase();
       let me: AuthMeDto;
       let principal: AnyAccount;
       let principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER';
 
       if (realm.kind === 'PLATFORM') {
-        const operator = await db.platformOperator.findUnique({ where: { emailNormalized: email } });
+        if (audience === 'CUSTOMER') throw GENERIC_LOGIN_FAILURE;
+        const operator = await db.platformOperator.findUnique({
+          where: { emailNormalized: email },
+        });
         if (!operator) throw GENERIC_LOGIN_FAILURE;
         if (operator.status !== 'ACTIVE') throw GENERIC_LOGIN_FAILURE;
         if (!(await verifyPassword(password, operator.passwordHash))) throw GENERIC_LOGIN_FAILURE;
@@ -127,14 +140,21 @@ export function createAuthService(deps: AuthServiceDeps) {
         me = { principalType: 'PLATFORM_OPERATOR', email: operator.emailNormalized };
       } else {
         const tenantId = realm.tenant.tenantId;
-        const staff = await db.staffAccount.findUnique({
-          where: { tenantId_emailNormalized: { tenantId, emailNormalized: email } },
-        });
+        const staff =
+          audience === 'AUTO'
+            ? await db.staffAccount.findUnique({
+                where: { tenantId_emailNormalized: { tenantId, emailNormalized: email } },
+              })
+            : null;
         if (staff) {
           const tenantUsable =
             realm.tenant.status === 'ACTIVE' ||
             (realm.tenant.status === 'PENDING_APPROVAL' && staff.role === 'AGENCY_OWNER');
-          if (!tenantUsable || staff.status !== 'ACTIVE' || !(await verifyPassword(password, staff.passwordHash))) {
+          if (
+            !tenantUsable ||
+            staff.status !== 'ACTIVE' ||
+            !(await verifyPassword(password, staff.passwordHash))
+          ) {
             throw GENERIC_LOGIN_FAILURE;
           }
           principal = staff;
@@ -172,7 +192,9 @@ export function createAuthService(deps: AuthServiceDeps) {
           const status = await lockTenantStatus(tx, realm.tenant.tenantId);
           const tenantUsable =
             status === 'ACTIVE' ||
-            (status === 'PENDING_APPROVAL' && principalType === 'AGENCY_STAFF' && me.role === 'AGENCY_OWNER');
+            (status === 'PENDING_APPROVAL' &&
+              principalType === 'AGENCY_STAFF' &&
+              me.role === 'AGENCY_OWNER');
           if (!tenantUsable) throw GENERIC_LOGIN_FAILURE;
           me = { ...me, tenant: { ...me.tenant!, status } };
         }
@@ -225,7 +247,9 @@ export function createAuthService(deps: AuthServiceDeps) {
       let accountSessionVersion: number | null = null;
 
       if (realm.kind === 'PLATFORM') {
-        const operator = await db.platformOperator.findUnique({ where: { emailNormalized: email } });
+        const operator = await db.platformOperator.findUnique({
+          where: { emailNormalized: email },
+        });
         if (operator?.status === 'ACTIVE') {
           accountId = operator.id;
           principalType = 'PLATFORM_OPERATOR';
@@ -233,7 +257,9 @@ export function createAuthService(deps: AuthServiceDeps) {
         }
       } else {
         const staff = await db.staffAccount.findUnique({
-          where: { tenantId_emailNormalized: { tenantId: realm.tenant.tenantId, emailNormalized: email } },
+          where: {
+            tenantId_emailNormalized: { tenantId: realm.tenant.tenantId, emailNormalized: email },
+          },
         });
         if (staff?.status === 'ACTIVE') {
           accountId = staff.id;
@@ -242,7 +268,9 @@ export function createAuthService(deps: AuthServiceDeps) {
           accountSessionVersion = staff.sessionVersion;
         } else {
           const customer = await db.customerAccount.findUnique({
-            where: { tenantId_emailNormalized: { tenantId: realm.tenant.tenantId, emailNormalized: email } },
+            where: {
+              tenantId_emailNormalized: { tenantId: realm.tenant.tenantId, emailNormalized: email },
+            },
           });
           if (customer?.status === 'ACTIVE') {
             accountId = customer.id;
@@ -285,7 +313,12 @@ export function createAuthService(deps: AuthServiceDeps) {
         await appendAudit(tx, {
           ...(tenantId !== null ? { tenantId } : {}),
           action: 'auth.password_reset_requested',
-          subjectType: principalType === 'PLATFORM_OPERATOR' ? 'platform_operator' : principalType === 'AGENCY_STAFF' ? 'staff_account' : 'customer_account',
+          subjectType:
+            principalType === 'PLATFORM_OPERATOR'
+              ? 'platform_operator'
+              : principalType === 'AGENCY_STAFF'
+                ? 'staff_account'
+                : 'customer_account',
           subjectId: accountId!,
           metadata: {},
         });
@@ -301,7 +334,8 @@ export function createAuthService(deps: AuthServiceDeps) {
         await tx.emailToken.updateMany({
           where: {
             purpose: 'PASSWORD_RESET',
-            principalType: row.principalType as 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER',
+            principalType: row.principalType as
+              'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER',
             principalId: row.principalId,
             consumedAt: null,
           },
@@ -329,7 +363,12 @@ export function createAuthService(deps: AuthServiceDeps) {
         await appendAudit(tx, {
           ...(row.tenantId !== null ? { tenantId: row.tenantId } : {}),
           action: 'auth.password_reset',
-          subjectType: row.principalType === 'PLATFORM_OPERATOR' ? 'platform_operator' : row.principalType === 'AGENCY_STAFF' ? 'staff_account' : 'customer_account',
+          subjectType:
+            row.principalType === 'PLATFORM_OPERATOR'
+              ? 'platform_operator'
+              : row.principalType === 'AGENCY_STAFF'
+                ? 'staff_account'
+                : 'customer_account',
           subjectId: row.principalId,
           metadata: {},
         });
