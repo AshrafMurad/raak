@@ -106,6 +106,7 @@ async function login(page: Page, email: string, locale: string) {
   await page.locator('[name=email]').fill(email);
   await page.locator('[name=password]').fill(password);
   await action(page, '/auth/login', () => page.locator('button[type=submit]').click());
+  await expect(page).toHaveURL(`${base}/${locale}/workspace/requests`);
 }
 async function emailLink(customerId: string, purpose: string, locale: string) {
   const token = await db.customerCapability.findFirstOrThrow({
