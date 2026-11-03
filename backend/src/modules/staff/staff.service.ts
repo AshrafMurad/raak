@@ -29,11 +29,18 @@ export function createStaffService(deps: StaffServiceDeps) {
   const db = deps.db;
 
   return {
-    async createInvitation(auth: AuthState, input: CreateInvitationDto): Promise<{ invitationId: string; expiresAt: Date }> {
+    async createInvitation(
+      auth: AuthState,
+      input: CreateInvitationDto,
+    ): Promise<{ invitationId: string; expiresAt: Date }> {
       // Service-boundary re-check of the central policy (docs 05 rule 5): the
       // HTTP permission gate already ran, but this method must stay safe when
       // called from any other transport or future job.
-      if (!authorize(principalFromAuth(auth), 'staff.invitations.create').allowed || auth.realm.kind !== 'AGENCY' || !auth.staff) {
+      if (
+        !authorize(principalFromAuth(auth), 'staff.invitations.create').allowed ||
+        auth.realm.kind !== 'AGENCY' ||
+        !auth.staff
+      ) {
         throw new ApiError(403, 'FORBIDDEN', 'You are not allowed to perform this action.');
       }
       const tenantId = auth.realm.tenant.tenantId;
@@ -96,7 +103,9 @@ export function createStaffService(deps: StaffServiceDeps) {
      */
     async acceptInvitation(input: AcceptInvitationDto, realm: AcceptedRealm): Promise<void> {
       const passwordHash = await hashPassword(input.password);
-      const row = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(input.token) } });
+      const row = await db.staffInvitation.findUnique({
+        where: { tokenHash: hashToken(input.token) },
+      });
       if (!row) {
         throw new ApiError(401, 'UNAUTHENTICATED', 'This invitation link is not valid.');
       }
@@ -118,13 +127,17 @@ export function createStaffService(deps: StaffServiceDeps) {
           }
           const consumedAt = deps.now();
           const consumed = await tx.staffInvitation.updateMany({
-          where: { id: row.id, consumedAt: null, expiresAt: { gt: consumedAt } },
-          data: { consumedAt },
-        });
+            where: { id: row.id, consumedAt: null, expiresAt: { gt: consumedAt } },
+            data: { consumedAt },
+          });
           if (consumed.count !== 1) {
             const current = await tx.staffInvitation.findUnique({ where: { id: row.id } });
             if (current?.consumedAt) {
-              throw new ApiError(409, 'TOKEN_ALREADY_USED', 'This invitation link was already used.');
+              throw new ApiError(
+                409,
+                'TOKEN_ALREADY_USED',
+                'This invitation link was already used.',
+              );
             }
             if (current && current.expiresAt.getTime() <= consumedAt.getTime()) {
               throw new ApiError(401, 'TOKEN_EXPIRED', 'This invitation link has expired.');
@@ -132,46 +145,62 @@ export function createStaffService(deps: StaffServiceDeps) {
             throw new ApiError(401, 'UNAUTHENTICATED', 'This invitation link is not valid.');
           }
           const existing = await tx.staffAccount.findUnique({
-          where: { tenantId_emailNormalized: { tenantId: row.tenantId, emailNormalized: row.emailNormalized } },
-        });
+            where: {
+              tenantId_emailNormalized: {
+                tenantId: row.tenantId,
+                emailNormalized: row.emailNormalized,
+              },
+            },
+          });
           if (existing) {
-            throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'An account with this email already exists.');
+            throw new ApiError(
+              409,
+              'STATE_TRANSITION_INVALID',
+              'An account with this email already exists.',
+            );
           }
           const account = await tx.staffAccount.create({
-          data: {
-            tenantId: row.tenantId,
-            emailNormalized: row.emailNormalized,
-            passwordHash,
-            role: row.role,
-            status: 'ACTIVE',
-            emailVerifiedAt: consumedAt,
-          },
-        });
-          const profile = row.caregiverProfileJson as { name?: string; professionalCategory?: string } | null;
-          if (row.role === 'CAREGIVER' && profile?.name && profile.professionalCategory) {
-            await tx.caregiver.create({
             data: {
               tenantId: row.tenantId,
-              staffAccountId: account.id,
-              name: profile.name,
-              professionalCategory: profile.professionalCategory,
-              operationalStatus: 'INACTIVE',
+              emailNormalized: row.emailNormalized,
+              passwordHash,
+              role: row.role,
+              status: 'ACTIVE',
+              emailVerifiedAt: consumedAt,
             },
+          });
+          const profile = row.caregiverProfileJson as {
+            name?: string;
+            professionalCategory?: string;
+          } | null;
+          if (row.role === 'CAREGIVER' && profile?.name && profile.professionalCategory) {
+            await tx.caregiver.create({
+              data: {
+                tenantId: row.tenantId,
+                staffAccountId: account.id,
+                name: profile.name,
+                professionalCategory: profile.professionalCategory,
+                operationalStatus: 'INACTIVE',
+              },
             });
           }
           await appendAudit(tx, {
-          tenantId: row.tenantId,
-          actorType: 'AGENCY_STAFF',
-          actorId: account.id,
-          action: 'staff.invitation_accepted',
-          subjectType: 'staff_account',
-          subjectId: account.id,
-          metadata: { role: row.role },
+            tenantId: row.tenantId,
+            actorType: 'AGENCY_STAFF',
+            actorId: account.id,
+            action: 'staff.invitation_accepted',
+            subjectType: 'staff_account',
+            subjectId: account.id,
+            metadata: { role: row.role },
           });
         });
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'An account with this email already exists.');
+          throw new ApiError(
+            409,
+            'STATE_TRANSITION_INVALID',
+            'An account with this email already exists.',
+          );
         }
         throw error;
       }

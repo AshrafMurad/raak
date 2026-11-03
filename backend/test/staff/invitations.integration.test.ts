@@ -39,7 +39,14 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
   let app: Express;
   const slugA = 'inv-a-' + Date.now().toString(36);
   const slugB = 'inv-b-' + Date.now().toString(36);
-  const ids: { tenantA?: string; tenantB?: string; owner?: string; admin?: string; coord?: string; caregiver?: string } = {};
+  const ids: {
+    tenantA?: string;
+    tenantB?: string;
+    owner?: string;
+    admin?: string;
+    coord?: string;
+    caregiver?: string;
+  } = {};
   let ownerCookies: { session: string; csrf: string };
   let adminCookies: { session: string; csrf: string };
   let coordCookies: { session: string; csrf: string };
@@ -51,17 +58,40 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const passwordHash = await hashPassword(PASSWORD);
 
     const tenantA = await db.tenant.create({
-      data: { slug: slugA, legalName: 'INV A', displayName: 'A', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: `s@${slugA}.invalid` },
+      data: {
+        slug: slugA,
+        legalName: 'INV A',
+        displayName: 'A',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: `s@${slugA}.invalid`,
+      },
     });
     const tenantB = await db.tenant.create({
-      data: { slug: slugB, legalName: 'INV B', displayName: 'B', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: `s@${slugB}.invalid` },
+      data: {
+        slug: slugB,
+        legalName: 'INV B',
+        displayName: 'B',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: `s@${slugB}.invalid`,
+      },
     });
     ids.tenantA = tenantA.id;
     ids.tenantB = tenantB.id;
 
     async function makeStaff(role: StaffRole, email: string, tenantId: string) {
       return db.staffAccount.create({
-        data: { tenantId, emailNormalized: email, passwordHash, role, status: 'ACTIVE', emailVerifiedAt: new Date() },
+        data: {
+          tenantId,
+          emailNormalized: email,
+          passwordHash,
+          role,
+          status: 'ACTIVE',
+          emailVerifiedAt: new Date(),
+        },
       });
     }
     ids.owner = (await makeStaff('AGENCY_OWNER', `owner@${slugA}.invalid`, tenantA.id)).id;
@@ -71,7 +101,13 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
 
     const { createSession } = await import('../../src/modules/auth/session.service');
     async function loginAs(staffId: string) {
-      const s = await createSession(db, { principalType: 'AGENCY_STAFF', principalId: staffId, tenantId: tenantA.id, sessionVersion: 0, ttlSeconds: 3600 });
+      const s = await createSession(db, {
+        principalType: 'AGENCY_STAFF',
+        principalId: staffId,
+        tenantId: tenantA.id,
+        sessionVersion: 0,
+        ttlSeconds: 3600,
+      });
       return { session: s.sessionToken, csrf: s.csrfToken };
     }
     ownerCookies = await loginAs(ids.owner!);
@@ -87,6 +123,19 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
       .set('Cookie', `raak_session_agency=${cookies.session}; raak_csrf_agency=${cookies.csrf}`)
       .set('X-CSRF-Token', cookies.csrf)
       .send(body);
+  }
+
+  async function waitForBlockedRequest(blockerPid: number) {
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      const rows = await db.$queryRaw<Array<{ blocked: boolean }>>`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_stat_activity WHERE ${blockerPid} = ANY(pg_blocking_pids(pid))
+        ) AS blocked`;
+      if (rows[0]?.blocked) return;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    throw new Error('Invitation request did not reach the transaction lock');
   }
 
   async function latestInvitationToken(email: string): Promise<string> {
@@ -120,19 +169,32 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
   });
 
   it('owner and admin can create invitations; coordinator and caregiver cannot', async () => {
-    const owner = await postInvite(ownerCookies, { email: `nurse1@${slugA}.invalid`, role: 'CAREGIVER', caregiverProfile: { name: 'سلمى أحمد', professionalCategory: 'NURSE' } });
+    const owner = await postInvite(ownerCookies, {
+      email: `nurse1@${slugA}.invalid`,
+      role: 'CAREGIVER',
+      caregiverProfile: { name: 'سلمى أحمد', professionalCategory: 'NURSE' },
+    });
     expect(owner.status).toBe(201);
     expect(typeof owner.body.data.invitationId).toBe('string');
     expect(owner.body.data.expiresAt).toBeDefined();
 
-    const admin = await postInvite(adminCookies, { email: `coord2@${slugA}.invalid`, role: 'CARE_COORDINATOR' });
+    const admin = await postInvite(adminCookies, {
+      email: `coord2@${slugA}.invalid`,
+      role: 'CARE_COORDINATOR',
+    });
     expect(admin.status).toBe(201);
 
-    const coord = await postInvite(coordCookies, { email: `x@${slugA}.invalid`, role: 'CAREGIVER' });
+    const coord = await postInvite(coordCookies, {
+      email: `x@${slugA}.invalid`,
+      role: 'CAREGIVER',
+    });
     expect(coord.status).toBe(403);
     expect(coord.body.error.code).toBe('FORBIDDEN');
 
-    const caregiver = await postInvite(caregiverCookies, { email: `y@${slugA}.invalid`, role: 'CAREGIVER' });
+    const caregiver = await postInvite(caregiverCookies, {
+      email: `y@${slugA}.invalid`,
+      role: 'CAREGIVER',
+    });
     expect(caregiver.status).toBe(403);
   });
 
@@ -146,7 +208,10 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
   });
 
   it('rejects AGENCY_OWNER invitations at validation', async () => {
-    const res = await postInvite(ownerCookies, { email: `owner2@${slugA}.invalid`, role: 'AGENCY_OWNER' });
+    const res = await postInvite(ownerCookies, {
+      email: `owner2@${slugA}.invalid`,
+      role: 'AGENCY_OWNER',
+    });
     expect(res.status).toBe(422);
   });
 
@@ -159,13 +224,20 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     expect(accept.status).toBe(200);
 
     const account = await db.staffAccount.findUnique({
-      where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: `nurse1@${slugA}.invalid` } },
+      where: {
+        tenantId_emailNormalized: {
+          tenantId: ids.tenantA!,
+          emailNormalized: `nurse1@${slugA}.invalid`,
+        },
+      },
     });
     expect(account?.status).toBe('ACTIVE');
     expect(account?.role).toBe('CAREGIVER');
     expect(account?.emailVerifiedAt).not.toBeNull();
 
-    const caregiver = await db.caregiver.findFirst({ where: { tenantId: ids.tenantA!, staffAccountId: account!.id } });
+    const caregiver = await db.caregiver.findFirst({
+      where: { tenantId: ids.tenantA!, staffAccountId: account!.id },
+    });
     expect(caregiver?.name).toBe('سلمى أحمد');
     expect(caregiver?.operationalStatus).toBe('INACTIVE');
 
@@ -243,15 +315,21 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     let invitation!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'SUSPENDED' } });
+      const [connection] = await tx.$queryRaw<
+        Array<{ pid: number }>
+      >`SELECT pg_backend_pid() AS pid`;
       invitation = Promise.resolve(
         postInvite(ownerCookies, { email: `raced@${slugA}.invalid`, role: 'CAREGIVER' }),
       );
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForBlockedRequest(connection!.pid);
     });
     const response = await invitation;
-    expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe('TENANT_INACTIVE');
-    await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+    try {
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('TENANT_INACTIVE');
+    } finally {
+      await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+    }
   });
 
   it('does not accept an invitation after concurrent suspension commits', async () => {
@@ -262,20 +340,28 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     let acceptance!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'SUSPENDED' } });
+      const [connection] = await tx.$queryRaw<
+        Array<{ pid: number }>
+      >`SELECT pg_backend_pid() AS pid`;
       acceptance = Promise.resolve(
         request(app)
           .post('/v1/staff/invitations/accept')
           .set('Host', `${slugA}.localhost`)
           .send({ token, password: 'Suspended-Pass-1!' }),
       );
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForBlockedRequest(connection!.pid);
     });
     const response = await acceptance;
-    expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe('TENANT_INACTIVE');
-    const invitation = await db.staffInvitation.findUnique({ where: { tokenHash: (await import('../../src/modules/auth/crypto')).hashToken(token) } });
-    expect(invitation?.consumedAt).toBeNull();
-    await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+    try {
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('TENANT_INACTIVE');
+      const invitation = await db.staffInvitation.findUnique({
+        where: { tokenHash: (await import('../../src/modules/auth/crypto')).hashToken(token) },
+      });
+      expect(invitation?.consumedAt).toBeNull();
+    } finally {
+      await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
+    }
   });
 
   it('maps concurrent same-email invitation acceptance to a state conflict', async () => {
@@ -285,15 +371,27 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
     const events = await db.outboxEvent.findMany({
-      where: { aggregateId: { in: [first.body.data.invitationId, second.body.data.invitationId] }, eventType: 'email.staff_invitation' },
+      where: {
+        aggregateId: { in: [first.body.data.invitationId, second.body.data.invitationId] },
+        eventType: 'email.staff_invitation',
+      },
     });
-    const tokens = events.map((event) => ((event.payloadMinimal as { link: string }).link.match(/token=([A-Za-z0-9_-]+)/)![1]!));
-    const responses = await Promise.all(tokens.map((token) => request(app)
-      .post('/v1/staff/invitations/accept')
-      .set('Host', `${slugA}.localhost`)
-      .send({ token, password: 'Duplicate-Pass-1!' })));
+    const tokens = events.map(
+      (event) =>
+        (event.payloadMinimal as { link: string }).link.match(/token=([A-Za-z0-9_-]+)/)![1]!,
+    );
+    const responses = await Promise.all(
+      tokens.map((token) =>
+        request(app)
+          .post('/v1/staff/invitations/accept')
+          .set('Host', `${slugA}.localhost`)
+          .send({ token, password: 'Duplicate-Pass-1!' }),
+      ),
+    );
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('STATE_TRANSITION_INVALID');
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe(
+      'STATE_TRANSITION_INVALID',
+    );
   });
 
   it('I06: refuses acceptance on the wrong tenant host without consuming the token, then succeeds on the invitation host', async () => {
@@ -319,7 +417,9 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     expect(onPlatform.body.error.message).toBe(onWrongTenant.body.error.message);
 
     const { hashToken } = await import('../../src/modules/auth/crypto');
-    const invitation = await db.staffInvitation.findUnique({ where: { tokenHash: hashToken(token) } });
+    const invitation = await db.staffInvitation.findUnique({
+      where: { tokenHash: hashToken(token) },
+    });
     expect(invitation?.consumedAt).toBeNull();
     const account = await db.staffAccount.findUnique({
       where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: email } },
@@ -343,11 +443,19 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
     const token = await latestInvitationToken(email);
     const responses = await Promise.all([
-      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Pass-1!' }),
-      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Pass-1!' }),
+      request(app)
+        .post('/v1/staff/invitations/accept')
+        .set('Host', `${slugA}.localhost`)
+        .send({ token, password: 'Race-Pass-1!' }),
+      request(app)
+        .post('/v1/staff/invitations/accept')
+        .set('Host', `${slugA}.localhost`)
+        .send({ token, password: 'Race-Pass-1!' }),
     ]);
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TOKEN_ALREADY_USED');
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe(
+      'TOKEN_ALREADY_USED',
+    );
   });
 
   it('I06: a wrong-host attempt racing a correct-host acceptance never consumes the token', async () => {
@@ -355,11 +463,19 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     await postInvite(ownerCookies, { email, role: 'CARE_COORDINATOR' });
     const token = await latestInvitationToken(email);
     const responses = await Promise.all([
-      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugB}.localhost`).send({ token, password: 'Race-Host-1!' }),
-      request(app).post('/v1/staff/invitations/accept').set('Host', `${slugA}.localhost`).send({ token, password: 'Race-Host-1!' }),
+      request(app)
+        .post('/v1/staff/invitations/accept')
+        .set('Host', `${slugB}.localhost`)
+        .send({ token, password: 'Race-Host-1!' }),
+      request(app)
+        .post('/v1/staff/invitations/accept')
+        .set('Host', `${slugA}.localhost`)
+        .send({ token, password: 'Race-Host-1!' }),
     ]);
     expect(responses.map((response) => response.status).sort()).toEqual([200, 401]);
-    expect(responses.find((response) => response.status === 401)?.body.error.code).toBe('UNAUTHENTICATED');
+    expect(responses.find((response) => response.status === 401)?.body.error.code).toBe(
+      'UNAUTHENTICATED',
+    );
     const account = await db.staffAccount.findUnique({
       where: { tenantId_emailNormalized: { tenantId: ids.tenantA!, emailNormalized: email } },
     });
@@ -371,7 +487,8 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
     const service = createStaffService({
       db,
       now: () => new Date(),
-      buildLink: (kind, token, context) => `http://${context.slug}.localhost/ar/accept-invitation#token=${token}`,
+      buildLink: (kind, token, context) =>
+        `http://${context.slug}.localhost/ar/accept-invitation#token=${token}`,
     });
     const coordinatorAuth = {
       sessionId: '00000000-0000-4000-8000-000000000001',
@@ -385,11 +502,20 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
       },
       realm: { kind: 'AGENCY', tenant: { tenantId: ids.tenantA!, slug: slugA, status: 'ACTIVE' } },
       csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
-      staff: { id: ids.coord!, tenantId: ids.tenantA!, emailNormalized: `coord@${slugA}.invalid`, role: 'CARE_COORDINATOR', status: 'ACTIVE' },
+      staff: {
+        id: ids.coord!,
+        tenantId: ids.tenantA!,
+        emailNormalized: `coord@${slugA}.invalid`,
+        role: 'CARE_COORDINATOR',
+        status: 'ACTIVE',
+      },
     } as unknown as import('../../src/modules/auth/guards').AuthState;
 
     await expect(
-      service.createInvitation(coordinatorAuth, { email: `svc-denied@${slugA}.invalid`, role: 'CAREGIVER' }),
+      service.createInvitation(coordinatorAuth, {
+        email: `svc-denied@${slugA}.invalid`,
+        role: 'CAREGIVER',
+      }),
     ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
 
     const suspendedAuth = {
@@ -402,26 +528,46 @@ describe.skipIf(!hasDatabase)('staff invitations', () => {
         principalType: 'AGENCY_STAFF',
         tenantId: ids.tenantA!,
       },
-      realm: { kind: 'AGENCY', tenant: { tenantId: ids.tenantA!, slug: slugA, status: 'SUSPENDED' } },
+      realm: {
+        kind: 'AGENCY',
+        tenant: { tenantId: ids.tenantA!, slug: slugA, status: 'SUSPENDED' },
+      },
       csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
-      staff: { id: ids.coord!, tenantId: ids.tenantA!, emailNormalized: `coord@${slugA}.invalid`, role: 'AGENCY_ADMIN', status: 'ACTIVE' },
+      staff: {
+        id: ids.coord!,
+        tenantId: ids.tenantA!,
+        emailNormalized: `coord@${slugA}.invalid`,
+        role: 'AGENCY_ADMIN',
+        status: 'ACTIVE',
+      },
     } as unknown as import('../../src/modules/auth/guards').AuthState;
     await expect(
-      service.createInvitation(suspendedAuth, { email: `svc-suspended@${slugA}.invalid`, role: 'CAREGIVER' }),
+      service.createInvitation(suspendedAuth, {
+        email: `svc-suspended@${slugA}.invalid`,
+        role: 'CAREGIVER',
+      }),
     ).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
 
     const invitationCount = await db.staffInvitation.count({
-      where: { emailNormalized: { in: [`svc-denied@${slugA}.invalid`, `svc-suspended@${slugA}.invalid`] } },
+      where: {
+        emailNormalized: { in: [`svc-denied@${slugA}.invalid`, `svc-suspended@${slugA}.invalid`] },
+      },
     });
     expect(invitationCount).toBe(0);
   });
 
   it('a suspended tenant kills its sessions: invitation creation becomes unauthenticated (I15 adjacency)', async () => {
     await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'SUSPENDED' } });
-    const res = await postInvite(ownerCookies, { email: `late@${slugA}.invalid`, role: 'CAREGIVER' });
+    const res = await postInvite(ownerCookies, {
+      email: `late@${slugA}.invalid`,
+      role: 'CAREGIVER',
+    });
     expect(res.status).toBe(401);
     await db.tenant.update({ where: { id: ids.tenantA! }, data: { status: 'ACTIVE' } });
-    const again = await postInvite(ownerCookies, { email: `back@${slugA}.invalid`, role: 'CAREGIVER' });
+    const again = await postInvite(ownerCookies, {
+      email: `back@${slugA}.invalid`,
+      role: 'CAREGIVER',
+    });
     expect(again.status).toBe(201);
   });
 });
