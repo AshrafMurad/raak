@@ -22,7 +22,9 @@ interface Bucket {
 
 const SWEEP_EVERY = 10_000;
 
-export function createRateLimiter(now: () => Date = () => new Date()): (options: RateLimitOptions) => RequestHandler {
+export function createRateLimiter(
+  now: () => Date = () => new Date(),
+): (options: RateLimitOptions) => RequestHandler {
   const buckets = new Map<string, Bucket>();
   let calls = 0;
 
@@ -47,13 +49,11 @@ export function createRateLimiter(now: () => Date = () => new Date()): (options:
       }
       bucket.count += 1;
       if (bucket.count > limit) {
-        res
-          .status(429)
-          .json(
-            errorEnvelope('RATE_LIMITED', 'Too many requests. Try again later.', {
-              requestId: res.locals.requestId as string | undefined,
-            }),
-          );
+        res.status(429).json(
+          errorEnvelope('RATE_LIMITED', 'Too many requests. Try again later.', {
+            requestId: res.locals.requestId as string | undefined,
+          }),
+        );
         return;
       }
       next();

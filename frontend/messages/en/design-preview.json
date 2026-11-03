@@ -1,5 +1,10 @@
 {
-  "intake": { "title": "Request steps and consent", "hint": "Shared step indicator and explicit acknowledgment for guest intake.", "steps": ["Service", "Requester", "Preferences", "Review"], "consent": "I have read the privacy notice." },
+  "intake": {
+    "title": "Request steps and consent",
+    "hint": "Shared step indicator and explicit acknowledgment for guest intake.",
+    "steps": ["Service", "Requester", "Preferences", "Review"],
+    "consent": "I have read the privacy notice."
+  },
   "preview": "Design preview · All people and records are synthetic",
   "skip": "Skip to content",
   "workspace": "Workspace",

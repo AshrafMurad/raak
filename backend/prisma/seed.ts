@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { getPrisma, disconnectPrisma } from '../src/db/client';
 import { hashPassword } from '../src/modules/auth/crypto';
 import { seedPeople } from './seed-people';
+import { seedScheduling } from './seed-scheduling';
 
 const TENANT_AFIYA_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ALNADWA_ID = '22222222-2222-4222-8222-222222222222';
@@ -201,6 +202,7 @@ async function main() {
     reviewerId: afiyaOwner.id,
     passwordHash,
   });
+  await seedScheduling(prisma, { tenantA: TENANT_AFIYA_ID, reviewerId: afiyaOwner.id });
   const [tenants, operators, staff, customers, invitations, patients, grants, caregivers] =
     await Promise.all([
       prisma.tenant.count(),
@@ -212,6 +214,7 @@ async function main() {
       prisma.patientAccess.count(),
       prisma.caregiver.count(),
     ]);
+  const [plans, visits] = await Promise.all([prisma.carePlan.count(), prisma.visit.count()]);
   process.stdout.write(
     `${JSON.stringify({
       msg: 'seed complete (synthetic only)',
@@ -223,6 +226,8 @@ async function main() {
       patients,
       grants,
       caregivers,
+      plans,
+      visits,
     })}\n`,
   );
 }

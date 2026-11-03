@@ -1,4 +1,26 @@
 /** Outbox identifiers. Payloads contain resource IDs only. */
+
+/** Sprint 5 care-plan lifecycle events (docs 04 BR-PLAN, docs 11). */
+export const CarePlanEvents = {
+  CREATED: 'careplan.created',
+  VERSION_CREATED: 'careplan.version_created',
+  DRAFT_EDITED: 'careplan.draft_edited',
+  CLINICAL_APPROVED: 'careplan.clinical_approved',
+  ACTIVATED: 'careplan.activated',
+  AMENDED: 'careplan.amended',
+  PAUSED: 'careplan.paused',
+  RESUMED: 'careplan.resumed',
+  COMPLETED: 'careplan.completed',
+  CANCELLED: 'careplan.cancelled',
+} as const;
+
+/** Sprint 5 scheduling events (docs 04 BR-SCH/BR-VST, docs 11). */
+export const SchedulingEvents = {
+  ASSIGNED: 'visit.assigned',
+  REASSIGNMENT_FLAGGED: 'visit.reassignment_flagged',
+  REASSIGNMENT_RESOLVED: 'visit.reassignment_resolved',
+} as const;
+
 export const RequestEvents = {
   ACCESS_EMAIL: 'email.request_access',
   SUBMITTED: 'request.new',

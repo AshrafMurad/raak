@@ -12,7 +12,13 @@ export default async function ResetPasswordPage({
   if (!isLocale(locale)) notFound();
   const dict = getDictionary(locale);
   return (
-    <PageShell locale={locale} eyebrow={dict.auth.reset.eyebrow} title={dict.auth.reset.title} intro={dict.auth.reset.intro} switchPath="/reset-password">
+    <PageShell
+      locale={locale}
+      eyebrow={dict.auth.reset.eyebrow}
+      title={dict.auth.reset.title}
+      intro={dict.auth.reset.intro}
+      switchPath="/reset-password"
+    >
       <ResetPasswordForm copy={dict.auth} />
     </PageShell>
   );

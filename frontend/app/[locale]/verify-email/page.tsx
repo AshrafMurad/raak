@@ -3,16 +3,18 @@ import { getDictionary, isLocale } from '../../../lib/i18n';
 import { PageShell } from '../_components/page-shell';
 import { VerifyEmailForm } from '../_components/auth-forms';
 
-export default async function VerifyEmailPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function VerifyEmailPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const dict = getDictionary(locale);
   return (
-    <PageShell locale={locale} eyebrow={dict.auth.verify.eyebrow} title={dict.auth.verify.title} intro={dict.auth.verify.intro} switchPath="/verify-email">
+    <PageShell
+      locale={locale}
+      eyebrow={dict.auth.verify.eyebrow}
+      title={dict.auth.verify.title}
+      intro={dict.auth.verify.intro}
+      switchPath="/verify-email"
+    >
       <VerifyEmailForm copy={dict.auth} />
     </PageShell>
   );

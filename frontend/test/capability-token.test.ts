@@ -10,7 +10,9 @@ describe('capability-token URL handling', () => {
     const url = new URL('https://agency.example/ar/accept-invitation#token=fragment-secret');
     expect(capabilityTokenFromLocation(url)).toBe('fragment-secret');
     expect(locationWithoutCapabilityToken(url)).toBe('/ar/accept-invitation');
-    expect(capabilityLocaleHref('/en/accept-invitation', url)).toBe('/en/accept-invitation#token=fragment-secret');
+    expect(capabilityLocaleHref('/en/accept-invitation', url)).toBe(
+      '/en/accept-invitation#token=fragment-secret',
+    );
   });
 
   it('does not consume query tokens and removes them from the visible location', () => {

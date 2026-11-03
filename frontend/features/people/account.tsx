@@ -6,7 +6,7 @@ import { apiRequest } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
 import { Field, Input } from '../../components/ui/field';
 import { Feedback } from '../../components/ui/feedback';
-import { CatalogFrame } from '../catalog/frame';
+import { PortalFrame } from '../../components/layout/portal-frame';
 import { peopleCopy, peopleError } from './copy';
 import './people.css';
 
@@ -55,7 +55,7 @@ export function CustomerAccount({ locale }: { locale: Locale }) {
     });
   }
   return (
-    <CatalogFrame locale={locale} path="/account">
+    <PortalFrame locale={locale} path="/account">
       <div className="raak-people">
         <h1>{c.account}</h1>
         <nav className="raak-actions">
@@ -212,6 +212,6 @@ export function CustomerAccount({ locale }: { locale: Locale }) {
           </Button>
         </form>
       </div>
-    </CatalogFrame>
+    </PortalFrame>
   );
 }

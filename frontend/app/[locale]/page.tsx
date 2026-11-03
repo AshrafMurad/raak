@@ -13,8 +13,11 @@ export default async function HomePage({ params }: LocalePageProps) {
   // This selects the surface only. The API resolves tenant identity and denies
   // unknown/inactive hosts; the frontend never supplies a tenant identifier.
   const host = (await headers()).get('host')?.split(':')[0] ?? '';
-  const platformHost = process.env.PLATFORM_HOST ?? (process.env.BASE_DOMAIN ? `platform.${process.env.BASE_DOMAIN}` : 'platform.localhost');
-  if (host !== platformHost && host !== 'localhost' && host !== '127.0.0.1') return <CatalogPortal locale={locale} />;
+  const platformHost =
+    process.env.PLATFORM_HOST ??
+    (process.env.BASE_DOMAIN ? `platform.${process.env.BASE_DOMAIN}` : 'platform.localhost');
+  if (host !== platformHost && host !== 'localhost' && host !== '127.0.0.1')
+    return <CatalogPortal locale={locale} />;
   const dict = getDictionary(locale);
   const switchTarget = otherLocale(locale);
 
@@ -26,8 +29,18 @@ export default async function HomePage({ params }: LocalePageProps) {
           {dict.brand.name} <span className="text-ink-muted">| {dict.brand['latin']}</span>
         </p>
         <nav className="flex flex-wrap items-center gap-2" aria-label="Primary">
-          <Link href={`/${locale}/register`} className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle">{dict.auth.nav.register}</Link>
-          <Link href={`/${locale}/login`} className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle">{dict.auth.nav.login}</Link>
+          <Link
+            href={`/${locale}/register`}
+            className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle"
+          >
+            {dict.auth.nav.register}
+          </Link>
+          <Link
+            href={`/${locale}/login`}
+            className="rounded-[var(--raak-radius-control)] px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-subtle"
+          >
+            {dict.auth.nav.login}
+          </Link>
           <Link
             href={`/${switchTarget}`}
             lang={switchTarget}

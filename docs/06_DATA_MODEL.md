@@ -211,3 +211,34 @@ polymorphic parents remain service-validated. All new business writes use
 transactional audit/outbox. `prisma/seed-people.ts` adds create-only synthetic
 patients (including overlapping tenant names), two independent grants, a revoked
 grant, a caregiver, a synthetic verified qualification and weekly hours.
+
+## Implemented Sprint 5 persistence
+
+Additive migration `20261103090000_sprint5_care_plans_visits` implements:
+
+- `CarePlan`: same-tenant patient and service references, optional verified
+  same-tenant service request, optional primary caregiver, DRAFT/ACTIVE/PAUSED/
+  COMPLETED/CANCELLED lifecycle, `currentVersion` and closure timestamps.
+- `CarePlanVersion`: `unique(tenantId,carePlanId,version)`; inclusive local
+  `validFrom/validUntil`, weekday set, `HH:mm` local start, duration, goal and
+  task templates, restricted clinical instructions, `timezoneSnapshot` and
+  `dstResolution` (REJECT/EARLIEST/LATEST). DRAFT → APPROVED records the
+  independent qualified approver and time; ACTIVATED stamps activation.
+  Approved/activated versions are immutable; corrections create a new version.
+- `Visit`: tenant-checked patient/service/plan/version/caregiver references,
+  `occurrenceKey` (partial unique per tenant+plan makes regeneration
+  idempotent), UTC schedule window with `timezoneSnapshot`, service-name
+  snapshot, PLANNED/SCHEDULED/IN_PROGRESS/COMPLETED/CANCELLED/MISSED status,
+  `assignmentHealth` (OK/NEEDS_REASSIGNMENT) and optimistic `version`.
+  CHECKs enforce ordering and bounded lengths; key queries index
+  tenant+caregiver+start+status and tenant+patient+start.
+- `VisitTask`: ordered immutable description snapshot with required flag and
+  PENDING/DONE/NOT_DONE outcome (execution outcomes remain Sprint 6).
+- `VisitAssignmentHistory`: append-only same-tenant old/new caregiver rows with
+  actor and optional reason; reassignment never mutates prior rows.
+
+All Sprint 5 writes are transactional with audit/outbox events. Candidate
+ranking and impact scans are read-only server computations over these tables;
+`prisma/seed-scheduling.ts` adds a create-only synthetic recurring service,
+full-week availability, one activated synthetic plan and three PLANNED visits
+(one intentionally overlapping the seeded synthetic leave date).

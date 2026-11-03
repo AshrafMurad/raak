@@ -107,3 +107,20 @@ Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants 
 - Download capabilities last 60 seconds and require the same current session on
   every content request. Grant revocation/expiry or session/tenant suspension
   denies previously issued links; no object-store URL is exposed. See ADR-0011.
+
+## Implemented Sprint 5 policy
+
+- New central actions: `careplans.read`, `careplans.manage`, `visits.read` and
+  `scheduling.manage` (Owner/Admin/Coordinator on ACTIVE tenants) and
+  `careplans.clinical_approve` (audience gate only). Clinical approval
+  additionally requires, inside the same transaction, an agency-verified,
+  unexpired qualification matching the service's required codes linked to the
+  approver's own caregiver profile — role or title alone always denies
+  (ADR-0012).
+- Care-plan, visit, candidate and assignment services recheck live session,
+  account/tenant status and central policy at the transactional boundary; every
+  query is tenant-scoped from server-resolved context, never client input.
+- Candidate responses expose only operational fields (name, load, area flags,
+  safe exclusion codes). Visit projections never include license numbers; plan
+  clinical instructions are only visible through care-plan read projections.
+  Platform operators and customers have no care-plan/visit access.

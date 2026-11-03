@@ -11,9 +11,7 @@ import type { ResolvedTenantContext } from '../../contracts';
 import { SLUG_PATTERN } from '../../contracts/auth';
 
 export type HostRealm =
-  | { kind: 'PLATFORM' }
-  | { kind: 'AGENCY'; tenant: ResolvedTenantContext }
-  | { kind: 'REJECTED' };
+  { kind: 'PLATFORM' } | { kind: 'AGENCY'; tenant: ResolvedTenantContext } | { kind: 'REJECTED' };
 
 /** A host realm that passed the gate (distributes for narrowing). */
 export type AcceptedRealm = Extract<HostRealm, { kind: 'PLATFORM' | 'AGENCY' }>;
@@ -39,7 +37,10 @@ function normalizeHost(raw: string | undefined): string | null {
   return host.length > 0 ? host : null;
 }
 
-export function createHostResolver(db: DatabaseClient, config: HostResolverConfig): HostRealmResolver {
+export function createHostResolver(
+  db: DatabaseClient,
+  config: HostResolverConfig,
+): HostRealmResolver {
   const baseDomain = config.baseDomain.toLowerCase();
   const platformHost = config.platformHost.toLowerCase();
   const suffix = `.${baseDomain}`;

@@ -540,6 +540,120 @@ email-provider/domain and production privacy/governance gates remain open.
 | POST | `/agency/visits/:id/review` | Separate completed-visit review |
 | POST | `/agency/visits/:id/corrections` | Append-only correction with reason |
 
+### Implemented Sprint 5 — care plans, recurrence and scheduling
+
+Canonical schemas: `backend/src/contracts/careplans.ts`. Unknown body fields are
+rejected. All routes are session + CSRF protected, `no-store`, tenant-resolved
+from the trusted host and rechecked at the service boundary.
+
+Care plans (`careplans.read` to read; `careplans.manage` Owner/Admin/Coordinator
+to change; `careplans.clinical_approve` additionally requires an agency-verified,
+unexpired qualification linked to the approver's caregiver profile for the exact
+service — titles never confer clinical authority, ADR-0012):
+
+- `GET /agency/care-plans?status=&patientId=&cursor=` → `{items,nextCursor}`
+  with patient/service summaries and planned/scheduled visit counts.
+- `GET /agency/patients` / `GET /agency/caregivers` / `GET /agency/services`
+  feed the picker selects (existing Sprint 2/4 list routes).
+- `POST /agency/patients/:patientId/care-plans` `{agencyServiceId,
+  serviceRequestId?, primaryCaregiverId?, validFrom, validUntil, weekdays[],
+  localStartTime, durationMin, goalText?, taskTemplates[], dstResolution,
+  clinicalInstructionsRestricted?}` → version 1 DRAFT. Recurring services only;
+  inclusive local dates; 1–30 task templates. When `serviceRequestId` is
+  supplied, the APPROVED request must match the exact tenant, patient and agency
+  service before any write. Inaccessible references return 404; same-tenant
+  semantic mismatch returns 409 `STATE_TRANSITION_INVALID`.
+- `GET /agency/care-plans/:id` → plan detail with full version history.
+- `PATCH /agency/care-plans/:id/draft` `{expectedDraftVersion,…content}` —
+  only the open current DRAFT version is mutable.
+- `POST /agency/care-plans/:id/approve-clinical` `{version}` — exact-version
+  approval; stale `version` → 409. Non-clinical services → 409.
+- `GET /agency/care-plans/:id/generation-preview?version=` — read-only
+  occurrence expansion (local dates + UTC windows), span, occurrence count and
+  amendment impact (`wouldCancel` lists only future PLANNED visits).
+- `POST /agency/care-plans/:id/activate` `{version}` — requires
+  `Idempotency-Key` (16–128 chars); transactionally upserts occurrences by
+  `occurrenceKey`, cancels only future unassigned PLANNED visits superseded by
+  an amendment, and never touches SCHEDULED+ visits. Span > 60 calendar days,
+  DST gap/fold with REJECT, or invalid local times → `PLAN_DURATION_EXCEEDED` /
+  `RECURRENCE_TIME_INVALID` (422). Generated visits are PLANNED and unassigned.
+- `POST /agency/care-plans/:id/revise` `{…content}` → new DRAFT version.
+- `POST /agency/care-plans/:id/pause` `{plannedVisitsAction:KEEP|CANCEL,
+  reason?}` (reason required when CANCEL), `/resume`, `/complete` `{reason?}`
+  (refuses while future PLANNED/SCHEDULED visits remain), `/cancel`
+  `{plannedVisitsAction,reason}`. Confirmed SCHEDULED visits are never silently
+  cancelled; a documented disposition is always explicit.
+
+Visits (`visits.read` Owner/Admin/Coordinator; `scheduling.manage` for all
+mutations):
+
+- `GET /agency/visits?from=&to=&status=&assignmentHealth=&carePlanId=&patientId=
+  caregiverId=&cursor=` → `{items,nextCursor,timezone,bufferMinutes}`. Dates are
+  inclusive agency-local calendar dates.
+- `GET /agency/visits/:id` → detail with task snapshots, assignment history and
+  service-name snapshot; no license numbers or clinical instructions beyond the
+  authorized plan projection.
+- `POST /agency/visits/:id/candidates` → advisory ranking only:
+  `{items:[{caregiverId,name,isPrimary,load,sameArea,serviceAreas}],excluded:[
+  {caregiverId,name,reasons[]}],advisory:true,bufferMinutes,…}`. Ranking:
+  primary caregiver, then lighter active SCHEDULED load, then same-area, then
+  stable ID. Exclusion reasons are the safe codes registered in
+  `CANDIDATE_EXCLUSION_REASONS` (no PHI).
+- Candidate lookup and new assignment require an ACTIVE parent care plan when
+  `carePlanId` is present. DRAFT/PAUSED/COMPLETED/CANCELLED parents return 409
+  `STATE_TRANSITION_INVALID` without parent content. Standalone PLANNED visits
+  remain assignable.
+- `POST /agency/visits/:id/assign` `{caregiverId,expectedVisitVersion,reason?}`
+  — requires `Idempotency-Key`. Plan-backed assignment serializes tenant → care
+  plan → visit → caregiver; standalone assignment serializes tenant → visit →
+  caregiver. It rechecks account/qualification (VERIFIED with independent
+  verifier+time, valid at the visit-local date)/authorization/area/availability/
+  leave, and rejects any overlap including the tenant travel buffer against the
+  caregiver's other SCHEDULED/IN_PROGRESS visits. Commits PLANNED → SCHEDULED,
+  appends assignment history and returns `{visitId,status,assignedCaregiverId,version,
+  assignmentHealth}`. Conflicts: 409 `SCHEDULE_CONFLICT` /
+  `CAREGIVER_UNAVAILABLE` / `VISIT_VERSION_CONFLICT`; replay with the same key
+  returns the stored result.
+- `POST /agency/visits/bulk-assign` `{assignments[],reason?}` — requires
+  `Idempotency-Key`; per-visit explicit outcomes
+  `{results:[{visitId,ok,status?,code?,…}],summary:{succeeded,failed}}`; a
+  failing row never rolls back committed rows and never reports false success.
+  Input order is semantic and duplicate visit IDs are rejected with 422
+  `VALIDATION_FAILED` before any reservation or execution. The request hash
+  preserves assignment order and includes every visit/caregiver/version tuple
+  plus `reason`. Execution is reserved before the first visit; each completed
+  successful per-visit outcome is checkpointed in the same transaction as its
+  assignment/history/audit/outbox commit, so matching replays
+  resume unfinished rows without rerunning completed work and return the
+  stable ordered result. An in-progress reservation holds a short execution
+  lease refreshed on every checkpoint: a concurrent matching request receives
+  409 `IDEMPOTENCY_IN_PROGRESS`, a changed payload returns 409
+  `IDEMPOTENCY_CONFLICT`, and a matching request arriving after the lease
+  lapses takes over the checkpoint of the interrupted run and resumes it.
+  Each reservation/takeover has a fresh execution token; each per-item commit
+  and final write locks the reservation and checks that token. A stale live
+  runner cannot commit or overwrite newer progress after takeover.
+  Checkpoints and stored summaries contain only resource IDs and stable
+  operation codes and numeric visit state, never caregiver names, patient or
+  clinical content, arbitrary error messages or unfiltered error details.
+  Failed outcomes are exactly `{visitId,ok:false,code}`.
+- `POST /agency/visits/:id/reassign` `{caregiverId,expectedVisitVersion,reason}`
+  — reason mandatory; same transactional eligibility/conflict rechecks,
+  append-only history. Existing confirmed visits retained by KEEP may be
+  maintained; this is not a new PLANNED-to-SCHEDULED transition. Plan-backed
+  reassignment still locks the parent plan before the visit and affected
+  caregivers in UUID order.
+- Availability/exception, caregiver profile, service-authorization and qualification verification
+  writes (Sprint 4 routes) now also run a prospective impact scan and flag
+  affected future SCHEDULED visits `NEEDS_REASSIGNMENT` without cancelling
+  them; `GET /agency/visits?assignmentHealth=NEEDS_REASSIGNMENT` is the
+  reassignment queue. Health flag/heal transitions increment the visit version
+  and append audit/outbox events (`visit.reassignment_flagged` /
+  `visit.reassignment_resolved`) atomically with the configuration change.
+
+`/caregiver/my/visits`, visit execution, review and change requests remain
+Sprint 6+ specifications.
+
 ## Visit change requests
 | Method | Path | Purpose |
 |---|---|---|
@@ -577,7 +691,7 @@ email-provider/domain and production privacy/governance gates remain open.
 - Changes and outbox event inserted in same DB transaction. Worker delivery can retry independently; dedupe by `(eventId,recipient,template)`.
 
 ## Error code registry (minimum)
-`UNAUTHENTICATED`, `FORBIDDEN`, `RESOURCE_NOT_FOUND`, `VALIDATION_FAILED`, `TENANT_INACTIVE`, `TENANT_SLUG_TAKEN`, `TOKEN_EXPIRED`, `TOKEN_ALREADY_USED`, `RATE_LIMITED`, `STATE_TRANSITION_INVALID`, `QUOTE_EXPIRED`, `QUOTE_SUPERSEDED`, `QUOTE_REVISION_PENDING`, `VISIT_VERSION_CONFLICT`, `SCHEDULE_CONFLICT`, `CAREGIVER_UNAVAILABLE`, `QUALIFICATION_INVALID`, `PATIENT_GRANT_REQUIRED`, `PLAN_DURATION_EXCEEDED`, `RECURRENCE_TIME_INVALID`, `IDEMPOTENCY_CONFLICT`.
+`UNAUTHENTICATED`, `FORBIDDEN`, `RESOURCE_NOT_FOUND`, `VALIDATION_FAILED`, `TENANT_INACTIVE`, `TENANT_SLUG_TAKEN`, `TOKEN_EXPIRED`, `TOKEN_ALREADY_USED`, `RATE_LIMITED`, `STATE_TRANSITION_INVALID`, `QUOTE_EXPIRED`, `QUOTE_SUPERSEDED`, `QUOTE_REVISION_PENDING`, `VISIT_VERSION_CONFLICT`, `SCHEDULE_CONFLICT`, `CAREGIVER_UNAVAILABLE`, `QUALIFICATION_INVALID`, `PATIENT_GRANT_REQUIRED`, `PLAN_DURATION_EXCEEDED`, `RECURRENCE_TIME_INVALID`, `IDEMPOTENCY_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`.
 
 ## Contract change discipline
 Use shared Zod schemas and generated TypeScript types consumed by UI/API/worker. Changes to enums, status meaning or domain DTOs require changes in schema, API tests, UI labels and documentation together. Maintain OpenAPI spec in code after initial implementation.

@@ -8,7 +8,13 @@ export default async function RegisterPage({ params }: { params: Promise<{ local
   if (!isLocale(locale)) notFound();
   const dict = getDictionary(locale);
   return (
-    <PageShell locale={locale} eyebrow={dict.auth.register.eyebrow} title={dict.auth.register.title} intro={dict.auth.register.intro} switchPath="/register">
+    <PageShell
+      locale={locale}
+      eyebrow={dict.auth.register.eyebrow}
+      title={dict.auth.register.title}
+      intro={dict.auth.register.intro}
+      switchPath="/register"
+    >
       <RegistrationForm copy={dict.auth} />
     </PageShell>
   );

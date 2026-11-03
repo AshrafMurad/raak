@@ -5,7 +5,7 @@ import type { Locale } from '../../lib/i18n';
 import { apiRequest } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
 import { Feedback } from '../../components/ui/feedback';
-import { CatalogFrame } from './frame';
+import { PortalFrame } from '../../components/layout/portal-frame';
 import { catalogCopy, localized } from './copy';
 import type { Portal, Service } from './contracts';
 
@@ -64,7 +64,7 @@ export function CatalogPortal({ locale, slug }: { locale: Locale; slug?: string 
   const brand = data?.agency.brandJson;
   const services = data?.services.filter((s) => !slug || s.slug === slug) ?? [];
   return (
-    <CatalogFrame
+    <PortalFrame
       locale={locale}
       name={brand ? localized(brand, locale) : data?.agency.displayName}
       branding={brand}
@@ -130,6 +130,6 @@ export function CatalogPortal({ locale, slug }: { locale: Locale; slug?: string 
           <p>{c.notConfirmed}</p>
         </>
       )}
-    </CatalogFrame>
+    </PortalFrame>
   );
 }

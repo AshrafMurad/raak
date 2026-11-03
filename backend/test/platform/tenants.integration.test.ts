@@ -49,11 +49,26 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     const passwordHash = await hashPassword(PASSWORD);
 
     const tenant = await db.tenant.create({
-      data: { slug, legalName: 'PLAT', displayName: 'P', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: `s@${slug}.invalid` },
+      data: {
+        slug,
+        legalName: 'PLAT',
+        displayName: 'P',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: `s@${slug}.invalid`,
+      },
     });
     tenantId = tenant.id;
     const staff = await db.staffAccount.create({
-      data: { tenantId, emailNormalized: staffEmail, passwordHash, role: 'CARE_COORDINATOR', status: 'ACTIVE', emailVerifiedAt: new Date() },
+      data: {
+        tenantId,
+        emailNormalized: staffEmail,
+        passwordHash,
+        role: 'CARE_COORDINATOR',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
     });
     staffId = staff.id;
     const operator = await db.platformOperator.upsert({
@@ -64,9 +79,20 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     operatorId = operator.id;
 
     const { createSession } = await import('../../src/modules/auth/session.service');
-    const opSession = await createSession(db, { principalType: 'PLATFORM_OPERATOR', principalId: operator.id, sessionVersion: operator.sessionVersion, ttlSeconds: 3600 });
+    const opSession = await createSession(db, {
+      principalType: 'PLATFORM_OPERATOR',
+      principalId: operator.id,
+      sessionVersion: operator.sessionVersion,
+      ttlSeconds: 3600,
+    });
     operatorCookies = { session: opSession.sessionToken, csrf: opSession.csrfToken };
-    const staffSession = await createSession(db, { principalType: 'AGENCY_STAFF', principalId: staff.id, tenantId, sessionVersion: staff.sessionVersion, ttlSeconds: 3600 });
+    const staffSession = await createSession(db, {
+      principalType: 'AGENCY_STAFF',
+      principalId: staff.id,
+      tenantId,
+      sessionVersion: staff.sessionVersion,
+      ttlSeconds: 3600,
+    });
     staffCookies = { session: staffSession.sessionToken, csrf: staffSession.csrfToken };
   });
 
@@ -99,7 +125,9 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
   it('lists tenants with aggregate counts and pagination', async () => {
     const res = await platformGet('/v1/platform/tenants?limit=100');
     expect(res.status).toBe(200);
-    const entry = (res.body.data.items as Array<Record<string, unknown>>).find((t) => t['slug'] === slug);
+    const entry = (res.body.data.items as Array<Record<string, unknown>>).find(
+      (t) => t['slug'] === slug,
+    );
     expect(entry).toBeDefined();
     expect(entry!['status']).toBe('ACTIVE');
     expect((entry!['counts'] as Record<string, number>)['staff']).toBeGreaterThanOrEqual(1);
@@ -132,7 +160,9 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
   });
 
   it('suspends the tenant, revokes sessions and blocks login (I15); reason is audited', async () => {
-    const suspend = await platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'Synthetic policy test' });
+    const suspend = await platformPost(`/v1/platform/tenants/${tenantId}/suspend`, {
+      reason: 'Synthetic policy test',
+    });
     expect(suspend.status).toBe(200);
     expect(suspend.body.data.status).toBe('SUSPENDED');
 
@@ -160,21 +190,28 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
   });
 
   it('rejects double suspend with STATE_TRANSITION_INVALID and enforces the reason', async () => {
-    const again = await platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'again' });
+    const again = await platformPost(`/v1/platform/tenants/${tenantId}/suspend`, {
+      reason: 'again',
+    });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('STATE_TRANSITION_INVALID');
 
     const noReason = await request(app)
       .post(`/v1/platform/tenants/${tenantId}/suspend`)
       .set('Host', 'platform.localhost')
-      .set('Cookie', `raak_session_platform=${operatorCookies.session}; raak_csrf_platform=${operatorCookies.csrf}`)
+      .set(
+        'Cookie',
+        `raak_session_platform=${operatorCookies.session}; raak_csrf_platform=${operatorCookies.csrf}`,
+      )
       .set('X-CSRF-Token', operatorCookies.csrf)
       .send({});
     expect(noReason.status).toBe(422);
   });
 
   it('re-activates the tenant; staff can log in again', async () => {
-    const activate = await platformPost(`/v1/platform/tenants/${tenantId}/activate`, { reason: 'Synthetic re-approval' });
+    const activate = await platformPost(`/v1/platform/tenants/${tenantId}/activate`, {
+      reason: 'Synthetic re-approval',
+    });
     expect(activate.status).toBe(200);
     expect(activate.body.data.status).toBe('ACTIVE');
 
@@ -202,8 +239,16 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     let secondSuspend!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "tenants" WHERE "id" = ${tenantId}::uuid FOR UPDATE`;
-      firstSuspend = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'Concurrent synthetic A' }));
-      secondSuspend = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/suspend`, { reason: 'Concurrent synthetic B' }));
+      firstSuspend = Promise.resolve(
+        platformPost(`/v1/platform/tenants/${tenantId}/suspend`, {
+          reason: 'Concurrent synthetic A',
+        }),
+      );
+      secondSuspend = Promise.resolve(
+        platformPost(`/v1/platform/tenants/${tenantId}/suspend`, {
+          reason: 'Concurrent synthetic B',
+        }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
     const suspensions = await Promise.all([firstSuspend, secondSuspend]);
@@ -213,8 +258,16 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     let secondActivate!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "tenants" WHERE "id" = ${tenantId}::uuid FOR UPDATE`;
-      firstActivate = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/activate`, { reason: 'Concurrent synthetic A' }));
-      secondActivate = Promise.resolve(platformPost(`/v1/platform/tenants/${tenantId}/activate`, { reason: 'Concurrent synthetic B' }));
+      firstActivate = Promise.resolve(
+        platformPost(`/v1/platform/tenants/${tenantId}/activate`, {
+          reason: 'Concurrent synthetic A',
+        }),
+      );
+      secondActivate = Promise.resolve(
+        platformPost(`/v1/platform/tenants/${tenantId}/activate`, {
+          reason: 'Concurrent synthetic B',
+        }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
     const activations = await Promise.all([firstActivate, secondActivate]);
@@ -225,7 +278,10 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
     let login!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.tenant.update({ where: { id: tenantId }, data: { status: 'SUSPENDED' } });
-      await tx.authSession.updateMany({ where: { tenantId, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.authSession.updateMany({
+        where: { tenantId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       login = Promise.resolve(
         request(app)
           .post('/v1/auth/login')
@@ -266,14 +322,35 @@ describe.skipIf(!hasDatabase)('platform control plane', () => {
       },
       realm: { kind: 'AGENCY', tenant: { tenantId, slug, status: 'ACTIVE' } },
       csrfTokenHash: '0000000000000000000000000000000000000000000000000000000000000000',
-      staff: { id: staffId, tenantId, emailNormalized: staffEmail, role: 'AGENCY_ADMIN', status: 'ACTIVE' },
+      staff: {
+        id: staffId,
+        tenantId,
+        emailNormalized: staffEmail,
+        role: 'AGENCY_ADMIN',
+        status: 'ACTIVE',
+      },
     } as unknown as import('../../src/modules/auth/guards').AuthState;
 
-    await expect(service.listTenants(staffAuth, {})).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
-    await expect(service.getTenant(staffAuth, tenantId)).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
-    await expect(service.listAudit(staffAuth, {})).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
-    await expect(service.activateTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
-    await expect(service.suspendTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(service.listTenants(staffAuth, {})).rejects.toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+    });
+    await expect(service.getTenant(staffAuth, tenantId)).rejects.toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+    });
+    await expect(service.listAudit(staffAuth, {})).rejects.toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+    });
+    await expect(service.activateTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+    });
+    await expect(service.suspendTenant(staffAuth, tenantId, 'forged')).rejects.toMatchObject({
+      status: 403,
+      code: 'FORBIDDEN',
+    });
 
     // The tenant was not mutated by the denied lifecycle attempts.
     const tenant = await db.tenant.findUnique({ where: { id: tenantId } });

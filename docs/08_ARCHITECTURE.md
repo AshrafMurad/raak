@@ -34,6 +34,56 @@ flowchart TD
 
 Use a **modular monolith** API initially: one deployable Express server with internal module boundaries, not premature microservices. Separate worker process only for asynchronous tasks.
 
+### Implemented module shape (Sprint 5 architecture stabilization)
+
+The care-plan and scheduling domains are decomposed behind stable interfaces
+(ADR-0012; Stage 0-2 of the incremental architecture stabilization design):
+
+- `care-plans` exposes one facade, `createCarePlanService(db, now)`, composed of
+  `care-plan.queries.ts` (list/detail/preview reads), `care-plan-draft.service.ts`
+  (create/edit/revise with linkage and one-open-draft enforcement),
+  `care-plan-clinical-approval.service.ts` (exact-version approval),
+  `care-plan-activation.service.ts` (idempotent occurrence generation) and
+  `care-plan-lifecycle.service.ts` (pause/resume/complete/cancel). Scoped
+  loaders/locks/projections live in `care-plan.repository.ts`; the single
+  recurrence-content mapping lives in `care-plan-content.ts`. The facade is
+  composition-only; controllers compose the facade, not internals.
+- `care-plan-assignment-policy.ts` is the narrow scheduling-to-care-plans seam:
+  `scheduling` imports only this public interface to lock and recheck parent-plan
+  assignability at commit time. No reverse import exists.
+- `scheduling` separates reads from commands: `visit.queries.ts` owns visit
+  list/detail (authorization, tenant-local date windows, pagination, safe
+  projections); `assignment.service.ts` owns only assign/reassign/bulk commands
+  with their idempotency and lock protocol. The controller composes both.
+  `bulk-reservation.ts` owns durable lease reservation and execution-token
+  fencing; a successful assignment and its checkpoint share one transaction.
+- Shared caregiver foundation rules/loaders/availability intervals have one
+  owner in the public `caregivers/eligibility.ts` policy seam. Scheduling adds
+  its booking-conflict rules on top. Caregiver configuration writers call the
+  transaction-scoped impact scanner through `scheduling/index.ts`; these are
+  explicit public seams, not imports into caregiver-service internals.
+- Canonical request DTOs, stable error codes and event constants live in
+  `backend/src/contracts` (`careplans.ts`, `events.ts`, `index.ts` barrel);
+  response projections are explicit, interface-pinned types. OpenAPI generation
+  remains a later-stage seam and is not claimed.
+- Frontend: shared workspace/portal shells and navigation live in
+  `frontend/components/layout/` (`WorkspaceFrame`, `WorkspaceNavigation`,
+  `PortalFrame`) with the locale-validating `app/[locale]/workspace/layout.tsx`;
+  no business feature owns the shared shell. `features/care-plans` and
+  `features/visits` are separate domain modules exporting only their screen;
+  rendering modules contain no endpoint strings, HTTP methods or payload
+  construction (endpoint adapters live in each feature's `api.ts`). Read DTOs
+  are decoded at the adapter seam; form models do not inherit response-only
+  or absent fields. Operational filters/selected record IDs and theme are
+  URL-backed for refresh/back/locale navigation. Production and preview share
+  `WorkspaceShell`, sidebar/header/mobile-navigation treatments.
+- Lock order (plan-backed assignment): tenant → care plan → visit → caregiver;
+  standalone assignment: tenant → visit → caregiver; pause/cancel disposition:
+  tenant → care plan → affected visits in UUID order. Bulk assignment reserves
+  `(tenantId, principalId, idempotencyKey)` before per-visit commits and
+  checkpoints only safe per-visit outcomes. Remaining domains keep their current
+  shape until their own touched sprint (Stage 3-6 scope).
+
 ## Tech stack defaults
 - TypeScript strict mode, Node LTS pinned in repo and CI (verify version when starting implementation).
 - Next.js App Router + accessible component library (shadcn/ui), Tailwind CSS, bilingual i18n structured namespaces.

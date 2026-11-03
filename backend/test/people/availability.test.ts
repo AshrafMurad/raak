@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { AvailabilitySchema, ExceptionSchema } from '../../src/contracts/caregivers';
-import { coversInterval } from '../../src/modules/caregivers/eligibility';
+import { coversInterval } from '../../src/modules/common/interval';
 
 it('accepts multiple non-overlapping intervals, rejects overlapping effective periods and invalid dates', () => {
   const slot = { weekday: 1, localStartTime: '08:00', localEndTime: '12:00' };

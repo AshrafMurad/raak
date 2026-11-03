@@ -15,7 +15,9 @@ import { ServiceConfigSchema } from '../../contracts/catalog';
 import type { AuthState } from '../auth/guards';
 import { agencyAction, missing, stale } from '../common/agency-action';
 import { recordChange } from '../common/record-change';
-import { coversInterval } from './eligibility';
+import { coversInterval } from '../common/interval';
+import { scanCaregiverAssignments } from '../scheduling';
+import { effectiveIntervals, foundationReasons, loadCaregiverFoundation } from './eligibility';
 
 const projection = {
   id: true,
@@ -152,7 +154,15 @@ export function createCaregiverService(db: DatabaseClient, now: () => Date) {
           select: projection,
         });
         await recordChange(tx, auth, tenantId, id, CaregiverEvents.UPDATED, 'caregiver');
-        return updated;
+        // Area/status changes can invalidate confirmed assignments (F10).
+        const impact = await scanCaregiverAssignments(tx, {
+          tenantId,
+          caregiverId: id,
+          actorId: auth.session.principalId,
+          now: now(),
+          trigger: 'profile_edited',
+        });
+        return { ...updated, impactScan: impact };
       }),
     qualification: (auth: AuthState, id: string, input: z.infer<typeof QualificationSchema>) =>
       db.$transaction(async (tx) => {
@@ -241,7 +251,19 @@ export function createCaregiverService(db: DatabaseClient, now: () => Date) {
           { fromStatus: row.status, toStatus: input.decision },
           input.reason,
         );
-        return updated;
+        // Withdrawing a verified qualification can invalidate confirmed
+        // assignments and blocks new ones (I20): flag, never silently change.
+        const impact =
+          input.decision === 'REJECTED' && row.status === 'VERIFIED'
+            ? await scanCaregiverAssignments(tx, {
+                tenantId,
+                caregiverId: row.caregiverId,
+                actorId: auth.session.principalId,
+                now: now(),
+                trigger: 'qualification_withdrawn',
+              })
+            : { flagged: 0, healed: 0 };
+        return { ...updated, impactScan: impact };
       }),
     authorizeServices: (
       auth: AuthState,
@@ -278,6 +300,13 @@ export function createCaregiverService(db: DatabaseClient, now: () => Date) {
           CaregiverEvents.SERVICES_AUTHORIZED,
           'caregiver',
         );
+        await scanCaregiverAssignments(tx, {
+          tenantId,
+          caregiverId: id,
+          actorId: auth.session.principalId,
+          now: now(),
+          trigger: 'service_authorizations_changed',
+        });
         return { id, version: row.version + 1 };
       }),
     eligibility: (auth: AuthState, id: string, input: z.infer<typeof EligibilitySchema>) =>
@@ -289,63 +318,10 @@ export function createCaregiverService(db: DatabaseClient, now: () => Date) {
         });
         if (!service) throw missing();
         const config = ServiceConfigSchema.parse(service.config);
-        const staff = row.staffAccountId
-          ? await tx.staffAccount.findFirst({
-              where: {
-                tenantId,
-                id: row.staffAccountId,
-                role: 'CAREGIVER',
-                status: 'ACTIVE',
-                emailVerifiedAt: { not: null },
-              },
-              select: { id: true },
-            })
-          : null;
-        const reasons: string[] = [];
-        if (row.operationalStatus !== 'ACTIVE' || !staff) reasons.push('ACCOUNT_INACTIVE');
-        if (
-          !(await tx.caregiverServiceAuthorization.findFirst({
-            where: { tenantId, caregiverId: id, agencyServiceId: service.id },
-          }))
-        )
-          reasons.push('SERVICE_NOT_AUTHORIZED');
-        const qualified = await tx.caregiverQualification.findMany({
-          where: {
-            tenantId,
-            caregiverId: id,
-            status: 'VERIFIED',
-            verifiedBy: { not: null },
-            verifiedAt: { not: null },
-            OR: [{ validThrough: null }, { validThrough: { gte: input.localDate } }],
-          },
-          select: { code: true },
-        });
-        if (
-          config.requiredQualificationCodes.some((code) => !qualified.some((q) => q.code === code))
-        )
-          reasons.push('QUALIFICATION_INVALID');
-        const areas = row.serviceAreasJson as string[];
-        if (!config.serviceAreaIds.some((area) => areas.includes(area)))
-          reasons.push('AREA_NOT_COVERED');
-        const exception = await tx.availabilityException.findFirst({
-          where: { tenantId, caregiverId: id, localDate: input.localDate },
-        });
-        const slots = await tx.availabilitySlot.findMany({
-          where: {
-            tenantId,
-            caregiverId: id,
-            weekday: new Date(`${input.localDate}T00:00:00Z`).getUTCDay(),
-            AND: [
-              { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: input.localDate } }] },
-              { OR: [{ effectiveTo: null }, { effectiveTo: { gte: input.localDate } }] },
-            ],
-          },
-        });
-        const intervals = exception
-          ? exception.type === 'UNAVAILABLE'
-            ? []
-            : [{ start: exception.startLocal!, end: exception.endLocal! }]
-          : slots.map((s) => ({ start: s.localStartTime, end: s.localEndTime }));
+        const foundation = await loadCaregiverFoundation(tx, tenantId, row.id);
+        if (!foundation) throw missing();
+        const reasons = foundationReasons(foundation, service.id, config, input.localDate);
+        const intervals = await effectiveIntervals(tx, tenantId, row.id, input.localDate);
         if (!coversInterval(intervals, input.startLocal, input.endLocal))
           reasons.push('OUTSIDE_AVAILABILITY');
         return {

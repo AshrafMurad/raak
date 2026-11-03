@@ -11,7 +11,12 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 export function isValidSlug(value: string): boolean {
-  return value.length >= 2 && value.length <= 63 && SLUG_PATTERN.test(value) && !RESERVED_SLUGS.has(value);
+  return (
+    value.length >= 2 &&
+    value.length <= 63 &&
+    SLUG_PATTERN.test(value) &&
+    !RESERVED_SLUGS.has(value)
+  );
 }
 
 export function isValidEmail(value: string): boolean {

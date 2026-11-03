@@ -461,7 +461,7 @@ try {
         await screen.waitForLoadState('networkidle');
         if (theme === 'dark')
           await screen.getByRole('button', { name: c.theme, exact: true }).click();
-        await expect(screen.locator('.raak-portal')).toHaveAttribute('data-theme', theme);
+        await expect(screen.locator('.rv-root')).toHaveAttribute('data-theme', theme);
         await expect(screen.locator('html')).toHaveAttribute(
           'dir',
           locale === 'ar' ? 'rtl' : 'ltr',

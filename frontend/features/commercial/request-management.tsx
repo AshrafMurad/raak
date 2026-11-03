@@ -8,8 +8,6 @@ import { Button } from '../../components/ui/button';
 import { CheckboxField, Field, Input, Textarea } from '../../components/ui/field';
 import { Feedback } from '../../components/ui/feedback';
 import { StatusBadge } from '../../components/ui/status-badge';
-import { CatalogFrame } from '../catalog/frame';
-import { WorkspaceNav } from '../catalog/workspace-nav';
 import { catalogCopy, localized } from '../catalog/copy';
 import type { RequestView } from '../catalog/contracts';
 import {
@@ -169,8 +167,7 @@ export function RequestManagement({ locale, requestId }: { locale: Locale; reque
   );
 
   return (
-    <CatalogFrame locale={locale} path={`/workspace/requests/${requestId}`}>
-      <WorkspaceNav locale={locale} />
+    <>
       {request ? (
         <>
           <h1>
@@ -545,6 +542,6 @@ export function RequestManagement({ locale, requestId }: { locale: Locale; reque
           {pendingRevision ? <Feedback title={c.revisionPending} /> : null}
         </section>
       ) : null}
-    </CatalogFrame>
+    </>
   );
 }

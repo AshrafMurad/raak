@@ -1,14 +1,13 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { apiRequest } from '../../../lib/api-client';
-import { capabilityTokenFromLocation, locationWithoutCapabilityToken } from '../../../lib/capability-token';
 import {
-  isValidEmail,
-  isValidPassword,
-  isValidSlug,
-} from '../../../lib/form-validation';
+  capabilityTokenFromLocation,
+  locationWithoutCapabilityToken,
+} from '../../../lib/capability-token';
+import { isValidEmail, isValidPassword, isValidSlug } from '../../../lib/form-validation';
 import type { Dictionary, Locale } from '../../../lib/i18n';
 
 type AuthCopy = Dictionary['auth'];
@@ -64,7 +63,8 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
     const ownerEmail = String(data.get('ownerEmail') ?? '').trim();
     const ownerPassword = String(data.get('ownerPassword') ?? '');
     if (!isValidSlug(slug)) return setError(copy.validation.slug);
-    if (!isValidEmail(supportEmail) || !isValidEmail(ownerEmail)) return setError(copy.validation.email);
+    if (!isValidEmail(supportEmail) || !isValidEmail(ownerEmail))
+      return setError(copy.validation.email);
     if (!isValidPassword(ownerPassword)) return setError(copy.validation.password);
     setError('');
     startTransition(async () => {
@@ -104,7 +104,10 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-6 shadow-[var(--raak-shadow-subtle)] sm:grid-cols-2 sm:p-8">
+    <form
+      onSubmit={submit}
+      className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-6 shadow-[var(--raak-shadow-subtle)] sm:grid-cols-2 sm:p-8"
+    >
       <label className="text-sm font-medium text-ink sm:col-span-2">
         {copy.register.legalName}
         <input name="legalName" required maxLength={200} className={inputClass} />
@@ -116,7 +119,9 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
       <label className="text-sm font-medium text-ink sm:col-span-2">
         {copy.register.slug}
         <input name="slug" required minLength={2} maxLength={63} dir="ltr" className={inputClass} />
-        <span className="mt-1 block text-xs font-normal text-ink-muted">{copy.register.slugHint}</span>
+        <span className="mt-1 block text-xs font-normal text-ink-muted">
+          {copy.register.slugHint}
+        </span>
       </label>
       <label className="text-sm font-medium text-ink">
         {copy.register.timezone}
@@ -140,14 +145,35 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
       </label>
       <label className="text-sm font-medium text-ink sm:col-span-2">
         {copy.register.ownerEmail}
-        <input name="ownerEmail" type="email" required dir="ltr" autoComplete="email" className={inputClass} />
+        <input
+          name="ownerEmail"
+          type="email"
+          required
+          dir="ltr"
+          autoComplete="email"
+          className={inputClass}
+        />
       </label>
       <label className="text-sm font-medium text-ink sm:col-span-2">
         {copy.register.ownerPassword}
-        <input name="ownerPassword" type="password" required minLength={10} maxLength={128} autoComplete="new-password" className={inputClass} />
-        <span className="mt-1 block text-xs font-normal text-ink-muted">{copy.register.passwordHint}</span>
+        <input
+          name="ownerPassword"
+          type="password"
+          required
+          minLength={10}
+          maxLength={128}
+          autoComplete="new-password"
+          className={inputClass}
+        />
+        <span className="mt-1 block text-xs font-normal text-ink-muted">
+          {copy.register.passwordHint}
+        </span>
       </label>
-      {error ? <div className="sm:col-span-2"><Notice kind="error">{error}</Notice></div> : null}
+      {error ? (
+        <div className="sm:col-span-2">
+          <Notice kind="error">{error}</Notice>
+        </div>
+      ) : null}
       <div className="sm:col-span-2">
         <button type="submit" disabled={pending} className={buttonClass}>
           {pending ? copy.common.working : copy.register.submit}
@@ -158,9 +184,8 @@ export function RegistrationForm({ copy }: { copy: AuthCopy }) {
 }
 
 export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) {
+  const router = useRouter();
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [platform, setPlatform] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -173,13 +198,20 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
     setError('');
     startTransition(async () => {
       try {
-        const me = await apiRequest<{ principalType: string }>(
+        const me = await apiRequest<{
+          principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER';
+        }>(
           '/auth/login',
           { method: 'POST', body: JSON.stringify({ email, password }) },
           window.location.hostname.startsWith('platform.') ? 'platform' : 'current',
         );
-        setPlatform(me.principalType === 'PLATFORM_OPERATOR');
-        setSuccess(true);
+        const destination =
+          me.principalType === 'PLATFORM_OPERATOR'
+            ? 'platform/tenants'
+            : me.principalType === 'AGENCY_CUSTOMER'
+              ? 'account'
+              : 'workspace/requests';
+        router.replace(`/${locale}/${destination}`);
       } catch {
         setError(copy.validation.request);
       }
@@ -187,22 +219,36 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
   }
 
   return (
-    <form onSubmit={submit} className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
+    <form
+      onSubmit={submit}
+      className="grid min-w-0 gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9"
+    >
       <label className="text-sm font-medium text-ink">
         {copy.login.email}
-        <input name="email" type="email" required dir="ltr" autoComplete="email" className={inputClass} />
+        <input
+          name="email"
+          type="email"
+          required
+          dir="ltr"
+          autoComplete="email"
+          className={inputClass}
+        />
       </label>
       <label className="text-sm font-medium text-ink">
         {copy.login.password}
-        <input name="password" type="password" required autoComplete="current-password" className={inputClass} />
+        <input
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          className={inputClass}
+        />
       </label>
       {error ? <Notice kind="error">{error}</Notice> : null}
-      {success ? <Notice kind="success">{copy.login.success}</Notice> : null}
       <div className="flex flex-wrap items-center gap-4">
         <button type="submit" disabled={pending} className={buttonClass}>
           {pending ? copy.common.working : copy.login.submit}
         </button>
-        {platform ? <Link href={`/${locale}/platform/tenants`} className="text-sm font-semibold text-brand underline-offset-4 hover:underline">{copy.login.platformLink}</Link> : null}
       </div>
     </form>
   );
@@ -218,7 +264,11 @@ export function VerifyEmailForm({ copy }: { copy: AuthCopy }) {
     setMessage('');
     startTransition(async () => {
       try {
-        await apiRequest('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token: capabilityToken }) }, 'platform');
+        await apiRequest(
+          '/auth/verify-email',
+          { method: 'POST', body: JSON.stringify({ token: capabilityToken }) },
+          'platform',
+        );
         clearCapabilityLocation();
         setSuccess(true);
         setMessage(copy.verify.success);
@@ -229,8 +279,15 @@ export function VerifyEmailForm({ copy }: { copy: AuthCopy }) {
   }
   return (
     <section className="rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
-      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.verify.missing}</Notice> : null}
-      <button type="button" onClick={verify} disabled={!capabilityToken || pending || success} className={`${buttonClass} mt-5`}>
+      {message || !capabilityToken ? (
+        <Notice kind={success ? 'success' : 'error'}>{message || copy.verify.missing}</Notice>
+      ) : null}
+      <button
+        type="button"
+        onClick={verify}
+        disabled={!capabilityToken || pending || success}
+        className={`${buttonClass} mt-5`}
+      >
         {pending ? copy.common.working : copy.verify.submit}
       </button>
     </section>
@@ -250,7 +307,14 @@ export function ResetPasswordForm({ copy }: { copy: AuthCopy }) {
     setMessage('');
     startTransition(async () => {
       try {
-        await apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: capabilityToken, newPassword: password }) }, 'platform');
+        await apiRequest(
+          '/auth/reset-password',
+          {
+            method: 'POST',
+            body: JSON.stringify({ token: capabilityToken, newPassword: password }),
+          },
+          'platform',
+        );
         clearCapabilityLocation();
         setSuccess(true);
         setMessage(copy.reset.success);
@@ -260,13 +324,30 @@ export function ResetPasswordForm({ copy }: { copy: AuthCopy }) {
     });
   }
   return (
-    <form onSubmit={submit} className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
+    <form
+      onSubmit={submit}
+      className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9"
+    >
       <label className="text-sm font-medium text-ink">
         {copy.reset.password}
-        <input name="password" type="password" required minLength={10} maxLength={128} autoComplete="new-password" className={inputClass} />
+        <input
+          name="password"
+          type="password"
+          required
+          minLength={10}
+          maxLength={128}
+          autoComplete="new-password"
+          className={inputClass}
+        />
       </label>
-      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.reset.missing}</Notice> : null}
-      <button type="submit" disabled={!capabilityToken || pending || success} className={buttonClass}>
+      {message || !capabilityToken ? (
+        <Notice kind={success ? 'success' : 'error'}>{message || copy.reset.missing}</Notice>
+      ) : null}
+      <button
+        type="submit"
+        disabled={!capabilityToken || pending || success}
+        className={buttonClass}
+      >
         {pending ? copy.common.working : copy.reset.submit}
       </button>
     </form>
@@ -299,13 +380,30 @@ export function AcceptInvitationForm({ copy }: { copy: AuthCopy }) {
     });
   }
   return (
-    <form onSubmit={submit} className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9">
+    <form
+      onSubmit={submit}
+      className="grid gap-5 rounded-card border border-line bg-surface p-7 shadow-[var(--raak-shadow-subtle)] sm:p-9"
+    >
       <label className="text-sm font-medium text-ink">
         {copy.invitation.password}
-        <input name="password" type="password" required minLength={10} maxLength={128} autoComplete="new-password" className={inputClass} />
+        <input
+          name="password"
+          type="password"
+          required
+          minLength={10}
+          maxLength={128}
+          autoComplete="new-password"
+          className={inputClass}
+        />
       </label>
-      {message || !capabilityToken ? <Notice kind={success ? 'success' : 'error'}>{message || copy.invitation.missing}</Notice> : null}
-      <button type="submit" disabled={!capabilityToken || pending || success} className={buttonClass}>
+      {message || !capabilityToken ? (
+        <Notice kind={success ? 'success' : 'error'}>{message || copy.invitation.missing}</Notice>
+      ) : null}
+      <button
+        type="submit"
+        disabled={!capabilityToken || pending || success}
+        className={buttonClass}
+      >
         {pending ? copy.common.working : copy.invitation.submit}
       </button>
     </form>

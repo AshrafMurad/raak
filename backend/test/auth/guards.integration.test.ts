@@ -34,27 +34,101 @@ describe.skipIf(!hasDatabase)('auth guards', () => {
     db = getPrisma();
     const hash = await hashPassword('Synthetic-Test-1!');
 
-    tenantA = await db.tenant.create({ data: { slug: 'guards-a', legalName: 'A', displayName: 'أ', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: 's@ga.invalid' } });
-    tenantB = await db.tenant.create({ data: { slug: 'guards-b', legalName: 'B', displayName: 'ب', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: 's@gb.invalid' } });
+    tenantA = await db.tenant.create({
+      data: {
+        slug: 'guards-a',
+        legalName: 'A',
+        displayName: 'أ',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: 's@ga.invalid',
+      },
+    });
+    tenantB = await db.tenant.create({
+      data: {
+        slug: 'guards-b',
+        legalName: 'B',
+        displayName: 'ب',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: 's@gb.invalid',
+      },
+    });
 
-    const owner = await db.staffAccount.create({ data: { tenantId: tenantA.id, emailNormalized: 'owner@guards-a.invalid', passwordHash: hash, role: 'AGENCY_OWNER', status: 'ACTIVE', emailVerifiedAt: new Date() } });
-    const caregiver = await db.staffAccount.create({ data: { tenantId: tenantA.id, emailNormalized: 'cg@guards-a.invalid', passwordHash: hash, role: 'CAREGIVER', status: 'ACTIVE', emailVerifiedAt: new Date() } });
-    const operator = await db.platformOperator.create({ data: { emailNormalized: 'op@guards.invalid', passwordHash: hash, status: 'ACTIVE' } });
+    const owner = await db.staffAccount.create({
+      data: {
+        tenantId: tenantA.id,
+        emailNormalized: 'owner@guards-a.invalid',
+        passwordHash: hash,
+        role: 'AGENCY_OWNER',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
+    });
+    const caregiver = await db.staffAccount.create({
+      data: {
+        tenantId: tenantA.id,
+        emailNormalized: 'cg@guards-a.invalid',
+        passwordHash: hash,
+        role: 'CAREGIVER',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
+    });
+    const operator = await db.platformOperator.create({
+      data: { emailNormalized: 'op@guards.invalid', passwordHash: hash, status: 'ACTIVE' },
+    });
 
-    const s1 = await createSession(db, { principalType: 'AGENCY_STAFF', principalId: owner.id, tenantId: tenantA.id, sessionVersion: owner.sessionVersion, ttlSeconds: 3600 });
+    const s1 = await createSession(db, {
+      principalType: 'AGENCY_STAFF',
+      principalId: owner.id,
+      tenantId: tenantA.id,
+      sessionVersion: owner.sessionVersion,
+      ttlSeconds: 3600,
+    });
     staffCookieA = { session: s1.sessionToken, csrf: s1.csrfToken };
-    const s2 = await createSession(db, { principalType: 'AGENCY_STAFF', principalId: caregiver.id, tenantId: tenantA.id, sessionVersion: caregiver.sessionVersion, ttlSeconds: 3600 });
+    const s2 = await createSession(db, {
+      principalType: 'AGENCY_STAFF',
+      principalId: caregiver.id,
+      tenantId: tenantA.id,
+      sessionVersion: caregiver.sessionVersion,
+      ttlSeconds: 3600,
+    });
     caregiverCookieA = { session: s2.sessionToken, csrf: s2.csrfToken };
-    const s3 = await createSession(db, { principalType: 'PLATFORM_OPERATOR', principalId: operator.id, sessionVersion: operator.sessionVersion, ttlSeconds: 3600 });
+    const s3 = await createSession(db, {
+      principalType: 'PLATFORM_OPERATOR',
+      principalId: operator.id,
+      sessionVersion: operator.sessionVersion,
+      ttlSeconds: 3600,
+    });
     operatorCookie = { session: s3.sessionToken, csrf: s3.csrfToken, principalId: operator.id };
 
-    const hostResolver = createHostResolver(db, { baseDomain: 'localhost', platformHost: 'platform.localhost' });
+    const hostResolver = createHostResolver(db, {
+      baseDomain: 'localhost',
+      platformHost: 'platform.localhost',
+    });
     const sessionScoped = [requireHostRealm(hostResolver), requireSession(db), requireCsrf()];
     app = express();
     app.use(express.json());
     app.use('/v1/me', ...sessionScoped.slice(0, 2), (req, res) => res.json({ data: { ok: true } }));
-    app.use('/v1/invite', requireHostRealm(hostResolver), requireSession(db), requireCsrf(), requirePermission('staff.invitations.create'), (req, res) => res.status(201).json({ data: { ok: true } }));
-    app.use('/v1/platform', requireHostRealm(hostResolver), requireSession(db), requireCsrf(), requirePermission('platform.tenants.read'), (req, res) => res.json({ data: { ok: true } }));
+    app.use(
+      '/v1/invite',
+      requireHostRealm(hostResolver),
+      requireSession(db),
+      requireCsrf(),
+      requirePermission('staff.invitations.create'),
+      (req, res) => res.status(201).json({ data: { ok: true } }),
+    );
+    app.use(
+      '/v1/platform',
+      requireHostRealm(hostResolver),
+      requireSession(db),
+      requireCsrf(),
+      requirePermission('platform.tenants.read'),
+      (req, res) => res.json({ data: { ok: true } }),
+    );
   });
 
   it('rejects unknown hosts with a non-enumerating 404', async () => {
@@ -112,7 +186,11 @@ describe.skipIf(!hasDatabase)('auth guards', () => {
   it('rejects mutations without or with a wrong CSRF token, accepts the right one', async () => {
     const host = 'guards-a.localhost';
     const cookie = `raak_session_agency=${staffCookieA.session}`;
-    const noToken = await request(app).post('/v1/invite').set('Host', host).set('Cookie', cookie).send({});
+    const noToken = await request(app)
+      .post('/v1/invite')
+      .set('Host', host)
+      .set('Cookie', cookie)
+      .send({});
     expect(noToken.status).toBe(403);
     expect(noToken.body.error.code).toBe('FORBIDDEN');
 
@@ -166,7 +244,12 @@ describe.skipIf(!hasDatabase)('auth guards', () => {
   afterAll(async () => {
     // Scoped cleanup only — other suites own their rows.
     await db.authSession.deleteMany({
-      where: { OR: [{ tenantId: { in: [tenantA.id, tenantB.id] } }, { principalId: operatorCookie.principalId }] },
+      where: {
+        OR: [
+          { tenantId: { in: [tenantA.id, tenantB.id] } },
+          { principalId: operatorCookie.principalId },
+        ],
+      },
     });
     await db.staffAccount.deleteMany({ where: { tenantId: { in: [tenantA.id, tenantB.id] } } });
     await db.platformOperator.deleteMany({ where: { emailNormalized: 'op@guards.invalid' } });

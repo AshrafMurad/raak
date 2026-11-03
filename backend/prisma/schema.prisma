@@ -1,6 +1,6 @@
-// Raak — Sprint 1 identity/control plane, Sprint 2 catalog/guest intake and
-// Sprint 3 commercial quotes and Sprint 4 people/access/private files.
-// Plan and visit tables remain with their owning sprints.
+// Raak — Sprint 1 identity/control plane, Sprint 2 catalog/guest intake,
+// Sprint 3 commercial quotes, Sprint 4 people/access/private files and
+// Sprint 5 care plans/visits/scheduling.
 
 generator client {
   provider = "prisma-client"
@@ -34,6 +34,8 @@ model Tenant {
   agencyServices   AgencyService[]
   patients         Patient[]
   documents        Document[]
+  carePlans        CarePlan[]
+  visits           Visit[]
 
   @@index([status])
   @@map("tenants")
@@ -118,6 +120,7 @@ model StaffAccount {
   requestNotifications  RequestNotification[]
   patientGrantsReviewed PatientAccess[]
   duplicateReviews      PatientDuplicateReview[]
+  approvedPlanVersions  CarePlanVersion[]        @relation("PlanClinicalApprover")
 
   @@unique([tenantId, emailNormalized])
   @@unique([tenantId, id])
@@ -243,6 +246,8 @@ model Caregiver {
   serviceAuthorizations           CaregiverServiceAuthorization[]
   availabilitySlots               AvailabilitySlot[]
   exceptions                      AvailabilityException[]
+  primaryCarePlans                CarePlan[]                      @relation("PlanPrimaryCaregiver")
+  assignedVisits                  Visit[]                         @relation("VisitAssignment")
 
   @@unique([tenantId, id])
   @@index([tenantId])
@@ -395,6 +400,8 @@ model AgencyService {
   updatedAt               DateTime                        @updatedAt @map("updated_at")
   requests                ServiceRequest[]
   caregiverAuthorizations CaregiverServiceAuthorization[]
+  carePlans               CarePlan[]
+  visits                  Visit[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, slug])
@@ -438,6 +445,7 @@ model ServiceRequest {
   notifications            RequestNotification[]
   quotes                   Quote[]
   claimCapabilities        CustomerCapability[]
+  carePlans                CarePlan[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, reference])
@@ -484,6 +492,8 @@ model Patient {
   requests          ServiceRequest[]
   grants            PatientAccess[]
   reviews           PatientDuplicateReview[]
+  carePlans         CarePlan[]
+  visits            Visit[]
 
   @@unique([tenantId, id])
   @@index([tenantId, normalizedName])
@@ -674,4 +684,150 @@ model IdempotencyKey {
   @@unique([tenantId, principalId, key])
   @@index([tenantId, expiresAt])
   @@map("idempotency_keys")
+}
+
+/// docs 04 BR-PLAN / docs 06 — care plan header. Versions carry the immutable
+/// content; primary caregiver is a preference, never an assignment bypass.
+model CarePlan {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  tenant             Tenant          @relation(fields: [tenantId], references: [id])
+  patientId          String          @map("patient_id") @db.Uuid
+  patient            Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  serviceRequestId   String?         @map("service_request_id") @db.Uuid
+  request            ServiceRequest? @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+  agencyServiceId    String          @map("agency_service_id") @db.Uuid
+  service            AgencyService   @relation(fields: [tenantId, agencyServiceId], references: [tenantId, id])
+  primaryCaregiverId String?         @map("primary_caregiver_id") @db.Uuid
+  primaryCaregiver   Caregiver?      @relation("PlanPrimaryCaregiver", fields: [tenantId, primaryCaregiverId], references: [tenantId, id])
+  status             String          @default("DRAFT")
+  currentVersion     Int             @default(0) @map("current_version")
+  startedAt          DateTime?       @map("started_at")
+  closedAt           DateTime?       @map("closed_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  versions CarePlanVersion[]
+  visits   Visit[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([tenantId, patientId])
+  @@map("care_plans")
+}
+
+/// docs 06 — one row per plan version. DRAFT is editable; APPROVED/ACTIVATED
+/// content is immutable history (approvedBy binds the exact version).
+model CarePlanVersion {
+  id                             String        @id @default(uuid()) @db.Uuid
+  tenantId                       String        @map("tenant_id") @db.Uuid
+  carePlanId                     String        @map("care_plan_id") @db.Uuid
+  carePlan                       CarePlan      @relation(fields: [tenantId, carePlanId], references: [tenantId, id])
+  version                        Int
+  status                         String        @default("DRAFT")
+  validFrom                      String        @map("valid_from") @db.VarChar(10)
+  validUntil                     String        @map("valid_until") @db.VarChar(10)
+  weekdaysJson                   Json          @map("weekdays_json")
+  localStartTime                 String        @map("local_start_time") @db.VarChar(5)
+  durationMin                    Int           @map("duration_min")
+  goalText                       String?       @map("goal_text")
+  taskTemplatesJson              Json          @map("task_templates_json")
+  clinicalInstructionsRestricted String?       @map("clinical_instructions_restricted")
+  timezoneSnapshot               String        @map("timezone_snapshot")
+  dstResolution                  String        @default("REJECT") @map("dst_resolution")
+  approvedByStaffId              String?       @map("approved_by_staff_id") @db.Uuid
+  approvedBy                     StaffAccount? @relation("PlanClinicalApprover", fields: [tenantId, approvedByStaffId], references: [tenantId, id])
+  approvedAt                     DateTime?     @map("approved_at")
+  activatedAt                    DateTime?     @map("activated_at")
+  createdAt                      DateTime      @default(now()) @map("created_at")
+
+  visits Visit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, carePlanId, version])
+  @@map("care_plan_versions")
+}
+
+/// docs 04 BR-VST / docs 06 — generated or future standalone visit proposals.
+/// Generated visits are PLANNED/unassigned; only transactional assignment
+/// confirms. occurrenceKey uniqueness (partial index in the migration) makes
+/// generation replay-safe.
+model Visit {
+  id                  String           @id @default(uuid()) @db.Uuid
+  tenantId            String           @map("tenant_id") @db.Uuid
+  tenant              Tenant           @relation(fields: [tenantId], references: [id])
+  patientId           String           @map("patient_id") @db.Uuid
+  patient             Patient          @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  agencyServiceId     String           @map("agency_service_id") @db.Uuid
+  service             AgencyService    @relation(fields: [tenantId, agencyServiceId], references: [tenantId, id])
+  carePlanId          String?          @map("care_plan_id") @db.Uuid
+  carePlan            CarePlan?        @relation(fields: [tenantId, carePlanId], references: [tenantId, id])
+  planVersionId       String?          @map("plan_version_id") @db.Uuid
+  planVersion         CarePlanVersion? @relation(fields: [tenantId, planVersionId], references: [tenantId, id])
+  occurrenceKey       String?          @map("occurrence_key") @db.VarChar(96)
+  assignedCaregiverId String?          @map("assigned_caregiver_id") @db.Uuid
+  assignedCaregiver   Caregiver?       @relation("VisitAssignment", fields: [tenantId, assignedCaregiverId], references: [tenantId, id])
+  areaId              String           @map("area_id")
+  serviceNameSnapshot Json             @map("service_name_snapshot")
+  scheduledStartUtc   DateTime         @map("scheduled_start_utc")
+  scheduledEndUtc     DateTime         @map("scheduled_end_utc")
+  timezoneSnapshot    String           @map("timezone_snapshot")
+  status              String           @default("PLANNED")
+  assignmentHealth    String           @default("OK") @map("assignment_health")
+  reviewStatus        String           @default("NOT_REQUIRED") @map("review_status")
+  actualStartAt       DateTime?        @map("actual_start_at")
+  actualEndAt         DateTime?        @map("actual_end_at")
+  cancelledReason     String?          @map("cancelled_reason")
+  cancelledAt         DateTime?        @map("cancelled_at")
+  version             Int              @default(1)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  tasks             VisitTask[]
+  assignmentHistory VisitAssignmentHistory[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, assignedCaregiverId, scheduledStartUtc, status])
+  @@index([tenantId, patientId, scheduledStartUtc])
+  @@index([tenantId, carePlanId])
+  @@index([tenantId, status, scheduledStartUtc])
+  @@map("visits")
+}
+
+/// docs 06 — per-visit task snapshot derived from the effective plan version;
+/// outcomes stay PENDING until the Sprint 6 execution flows.
+model VisitTask {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  visitId             String    @map("visit_id") @db.Uuid
+  visit               Visit     @relation(fields: [tenantId, visitId], references: [tenantId, id])
+  order               Int
+  descriptionSnapshot String    @map("description_snapshot")
+  isRequired          Boolean   @default(true) @map("is_required")
+  outcome             String    @default("PENDING")
+  notDoneReason       String?   @map("not_done_reason")
+  doneAt              DateTime? @map("done_at")
+  updatedBy           String?   @map("updated_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, visitId])
+  @@map("visit_tasks")
+}
+
+/// docs 06 — append-only assignment/reassignment history.
+model VisitAssignmentHistory {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  visitId        String   @map("visit_id") @db.Uuid
+  visit          Visit    @relation(fields: [tenantId, visitId], references: [tenantId, id])
+  oldCaregiverId String?  @map("old_caregiver_id") @db.Uuid
+  newCaregiverId String   @map("new_caregiver_id") @db.Uuid
+  changedBy      String   @map("changed_by") @db.Uuid
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, visitId])
+  @@map("visit_assignment_history")
 }

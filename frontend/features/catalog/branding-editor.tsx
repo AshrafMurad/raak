@@ -6,8 +6,6 @@ import { Input, Field, Textarea } from '../../components/ui/field';
 import { Button } from '../../components/ui/button';
 import { Select } from '../../components/ui/select';
 import { Feedback } from '../../components/ui/feedback';
-import { CatalogFrame } from './frame';
-import { WorkspaceNav } from './workspace-nav';
 import { catalogCopy } from './copy';
 import type { Branding } from './contracts';
 
@@ -38,8 +36,7 @@ export function BrandingEditor({ locale }: { locale: Locale }) {
       .catch(() => setMessage(c.error));
   }, [c.error]);
   return (
-    <CatalogFrame locale={locale} path="/workspace/branding">
-      <WorkspaceNav locale={locale} />
+    <>
       <h1>{c.branding}</h1>
       {message ? <Feedback title={message} /> : null}
       <form
@@ -146,6 +143,6 @@ export function BrandingEditor({ locale }: { locale: Locale }) {
           {pending ? c.loading : c.save}
         </Button>
       </form>
-    </CatalogFrame>
+    </>
   );
 }

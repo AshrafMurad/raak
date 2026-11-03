@@ -20,13 +20,17 @@ describe('quote contracts', () => {
 
   it('rejects malformed line items, unknown fields and non-integer money', () => {
     expect(
-      QuoteLineItemsSchema.safeParse([{ description: 'x', quantity: 1.5, unitPriceMinor: 100 }]).success,
+      QuoteLineItemsSchema.safeParse([{ description: 'x', quantity: 1.5, unitPriceMinor: 100 }])
+        .success,
     ).toBe(false);
     expect(
-      QuoteLineItemsSchema.safeParse([{ description: 'x', quantity: 1, unitPriceMinor: -1 }]).success,
+      QuoteLineItemsSchema.safeParse([{ description: 'x', quantity: 1, unitPriceMinor: -1 }])
+        .success,
     ).toBe(false);
     expect(QuoteLineItemsSchema.safeParse([]).success).toBe(false);
-    expect(QuoteDraftSchema.safeParse({ lineItems: [], terms: 't', totalMinor: 5 }).success).toBe(false);
+    expect(QuoteDraftSchema.safeParse({ lineItems: [], terms: 't', totalMinor: 5 }).success).toBe(
+      false,
+    );
     expect(
       QuoteLineItemsSchema.safeParse([
         { description: 'overflow', quantity: 10_000, unitPriceMinor: 100_000_000 },
@@ -37,9 +41,14 @@ describe('quote contracts', () => {
 
   it('bounds validity windows and revision messages', () => {
     const items = [{ description: 'Visit', quantity: 1, unitPriceMinor: 100 }];
-    expect(QuoteSendSchema.safeParse({ expectedVersion: 1, validForHours: 24, lineItems: items }).success).toBe(true);
+    expect(
+      QuoteSendSchema.safeParse({ expectedVersion: 1, validForHours: 24, lineItems: items })
+        .success,
+    ).toBe(true);
     expect(QuoteSendSchema.safeParse({ expectedVersion: 1, validForHours: 0 }).success).toBe(false);
-    expect(QuoteSendSchema.safeParse({ expectedVersion: 1, validForHours: 24 * 91 }).success).toBe(false);
+    expect(QuoteSendSchema.safeParse({ expectedVersion: 1, validForHours: 24 * 91 }).success).toBe(
+      false,
+    );
     expect(
       QuoteRevisionRequestSchema.safeParse({ quoteVersion: 1, message: 'short' }).success,
     ).toBe(false);

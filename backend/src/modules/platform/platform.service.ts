@@ -37,9 +37,21 @@ export function createPlatformService(deps: PlatformServiceDeps) {
 
   async function countsFor(tenantIds: string[]) {
     const [owners, staff, customers] = await Promise.all([
-      db.staffAccount.groupBy({ by: ['tenantId'], where: { tenantId: { in: tenantIds }, role: 'AGENCY_OWNER' }, _count: { _all: true } }),
-      db.staffAccount.groupBy({ by: ['tenantId'], where: { tenantId: { in: tenantIds } }, _count: { _all: true } }),
-      db.customerAccount.groupBy({ by: ['tenantId'], where: { tenantId: { in: tenantIds } }, _count: { _all: true } }),
+      db.staffAccount.groupBy({
+        by: ['tenantId'],
+        where: { tenantId: { in: tenantIds }, role: 'AGENCY_OWNER' },
+        _count: { _all: true },
+      }),
+      db.staffAccount.groupBy({
+        by: ['tenantId'],
+        where: { tenantId: { in: tenantIds } },
+        _count: { _all: true },
+      }),
+      db.customerAccount.groupBy({
+        by: ['tenantId'],
+        where: { tenantId: { in: tenantIds } },
+        _count: { _all: true },
+      }),
     ]);
     const ownerMap = new Map(owners.map((r) => [r.tenantId, r._count._all]));
     const staffMap = new Map(staff.map((r) => [r.tenantId, r._count._all]));
@@ -58,7 +70,10 @@ export function createPlatformService(deps: PlatformServiceDeps) {
   }
 
   return {
-    async listTenants(auth: AuthState, page: CursorPage & { status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' }) {
+    async listTenants(
+      auth: AuthState,
+      page: CursorPage & { status?: 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' },
+    ) {
       assertAllowed(auth, 'platform.tenants.read');
       const limit = clampLimit(page.limit);
       const tenants = await db.tenant.findMany({
@@ -110,20 +125,32 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       };
     },
 
-    async activateTenant(auth: AuthState, tenantId: string, reason?: string): Promise<{ tenantId: string; status: string }> {
+    async activateTenant(
+      auth: AuthState,
+      tenantId: string,
+      reason?: string,
+    ): Promise<{ tenantId: string; status: string }> {
       assertAllowed(auth, 'platform.tenants.activate');
       const tenant = await db.$transaction(async (tx) => {
         const current = await tx.tenant.findUnique({ where: { id: tenantId } });
         if (!current) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
         if (current.status !== 'PENDING_APPROVAL' && current.status !== 'SUSPENDED') {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be activated from its current status.');
+          throw new ApiError(
+            409,
+            'STATE_TRANSITION_INVALID',
+            'Tenant cannot be activated from its current status.',
+          );
         }
         const changed = await tx.tenant.updateMany({
           where: { id: tenantId, status: current.status },
           data: { status: 'ACTIVE' },
         });
         if (changed.count !== 1) {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be activated from its current status.');
+          throw new ApiError(
+            409,
+            'STATE_TRANSITION_INVALID',
+            'Tenant cannot be activated from its current status.',
+          );
         }
         const updated = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } });
         const owner = await tx.staffAccount.findFirst({
@@ -153,20 +180,32 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       return { tenantId: tenant.id, status: tenant.status };
     },
 
-    async suspendTenant(auth: AuthState, tenantId: string, reason: string): Promise<{ tenantId: string; status: string }> {
+    async suspendTenant(
+      auth: AuthState,
+      tenantId: string,
+      reason: string,
+    ): Promise<{ tenantId: string; status: string }> {
       assertAllowed(auth, 'platform.tenants.suspend');
       const tenant = await db.$transaction(async (tx) => {
         const current = await tx.tenant.findUnique({ where: { id: tenantId } });
         if (!current) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Resource not found.');
         if (current.status !== 'ACTIVE') {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be suspended from its current status.');
+          throw new ApiError(
+            409,
+            'STATE_TRANSITION_INVALID',
+            'Tenant cannot be suspended from its current status.',
+          );
         }
         const changed = await tx.tenant.updateMany({
           where: { id: tenantId, status: 'ACTIVE' },
           data: { status: 'SUSPENDED' },
         });
         if (changed.count !== 1) {
-          throw new ApiError(409, 'STATE_TRANSITION_INVALID', 'Tenant cannot be suspended from its current status.');
+          throw new ApiError(
+            409,
+            'STATE_TRANSITION_INVALID',
+            'Tenant cannot be suspended from its current status.',
+          );
         }
         const updated = await tx.tenant.findUniqueOrThrow({ where: { id: tenantId } });
         await revokeAllSessionsForTenant(tx, tenantId, deps.now);

@@ -12,7 +12,13 @@ export default async function AcceptInvitationPage({
   if (!isLocale(locale)) notFound();
   const dict = getDictionary(locale);
   return (
-    <PageShell locale={locale} eyebrow={dict.auth.invitation.eyebrow} title={dict.auth.invitation.title} intro={dict.auth.invitation.intro} switchPath="/accept-invitation">
+    <PageShell
+      locale={locale}
+      eyebrow={dict.auth.invitation.eyebrow}
+      title={dict.auth.invitation.title}
+      intro={dict.auth.invitation.intro}
+      switchPath="/accept-invitation"
+    >
       <AcceptInvitationForm copy={dict.auth} />
     </PageShell>
   );
