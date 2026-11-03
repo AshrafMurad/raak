@@ -1,0 +1,60 @@
+.raak-visits {
+  display: contents;
+  overflow-wrap: anywhere;
+}
+.raak-visits .raak-scheduling-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.raak-visits .raak-scheduling-grid > .rv-field,
+.raak-visits .raak-scheduling-grid > fieldset {
+  min-inline-size: 0;
+}
+.raak-visits fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.raak-visits legend {
+  font-size: 13px;
+  font-weight: 500;
+  margin-block-end: 8px;
+}
+.raak-visits .raak-scheduling-list-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.raak-visits .raak-scheduling-meta {
+  color: var(--rv-muted);
+  font-size: 13px;
+}
+.raak-visits .raak-scheduling-table {
+  min-width: 760px;
+}
+.raak-visits .raak-scheduling-table td:last-child,
+.raak-visits .raak-scheduling-table th:last-child {
+  width: auto;
+  padding-inline-end: 14px;
+}
+.raak-visits .raak-candidate-list {
+  display: grid;
+  gap: 16px;
+}
+.raak-visits .raak-candidate {
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-control-radius);
+  padding: 14px;
+}
+.raak-visits .raak-scheduling-code {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 767px) {
+  .raak-visits .raak-scheduling-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
