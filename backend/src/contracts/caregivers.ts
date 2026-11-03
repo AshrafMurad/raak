@@ -15,7 +15,8 @@ export const LocalDateSchema = z
     const d = new Date(`${s}T00:00:00Z`);
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
   }, 'Invalid calendar date');
-const clock = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
+export const LocalClockSchema = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
+const clock = LocalClockSchema;
 const version = z.number().int().positive();
 export const CaregiverOperationalSchema = z.strictObject({
   name: z.string().trim().min(2).max(120),

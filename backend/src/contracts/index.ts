@@ -6,3 +6,5 @@ export * from './pagination';
 export * from './context';
 export * from './auth';
 export * from './platform';
+export * from './events';
+export * from './careplans';
