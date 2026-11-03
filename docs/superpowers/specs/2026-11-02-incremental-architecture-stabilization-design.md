@@ -1,6 +1,7 @@
 # Incremental Architecture Stabilization Design
 
-Date: 2026-11-02  
+Date: 2026-11-02
+
 Status: owner-approved 2026-11-02
 
 ## Intent

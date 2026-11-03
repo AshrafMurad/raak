@@ -1,7 +1,9 @@
 # Sprint 5 Architecture Stabilization Status
 
-Date: 2026-11-03  
-Plan: `docs/superpowers/plans/2026-11-02-pre-sprint-6-architecture-stabilization.md`  
+Date: 2026-11-03
+
+Plan: `docs/superpowers/plans/2026-11-02-pre-sprint-6-architecture-stabilization.md`
+
 Completed tasks: Task 1, Freeze Decisions and Baseline; Task 2, Enforce Parent-Plan Assignment State; Task 3, Enforce Care-Plan Request Linkage; Task 4, Make Bulk Assignment Idempotency Concurrency-Safe; Task 5, Move Workspace Ownership Out of Catalog; Task 6, Establish Care-Plan Pure Seams; Task 7, Split Care-Plan Orchestration and UI; Task 8, Split Visits from Care Plans; Task 9, Freeze the Backend Facade and Extract Shared Care-Plan Internals; Task 10, Extract Care-Plan Queries and Command Families; Task 11, Separate Visit Queries from Assignment Commands; Task 12, Apply Architecture Gates and Close the Stabilization Sprint
 Status: **Tasks 1-12 implemented; independent review found gaps, now remediated in the review-fix continuation below. Sprint 6 has not been started.**
 
