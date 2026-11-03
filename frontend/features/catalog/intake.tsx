@@ -8,7 +8,7 @@ import { Input, Field, Textarea, CheckboxField } from '../../components/ui/field
 import { Select } from '../../components/ui/select';
 import { Stepper } from '../../components/ui/stepper';
 import { Feedback } from '../../components/ui/feedback';
-import { CatalogFrame } from './frame';
+import { PortalFrame } from '../../components/layout/portal-frame';
 import { catalogCopy, localized } from './copy';
 import type { Portal, Service } from './contracts';
 import { Price } from './portal';
@@ -168,7 +168,7 @@ export function GuestIntake({ locale, slug }: { locale: Locale; slug?: string })
     </Field>
   );
   return (
-    <CatalogFrame
+    <PortalFrame
       locale={locale}
       name={brand ? localized(brand, locale) : portal?.agency.displayName}
       branding={brand}
@@ -343,6 +343,6 @@ export function GuestIntake({ locale, slug }: { locale: Locale; slug?: string })
           </form>
         </>
       )}
-    </CatalogFrame>
+    </PortalFrame>
   );
 }

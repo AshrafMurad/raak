@@ -1,15 +1,21 @@
 'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, type ReactNode } from 'react';
 import type { Locale } from '../../lib/i18n';
-import { PortalShell } from '../../components/layout/portal-shell';
-import { Button } from '../../components/ui/button';
-import { ThemeContext } from '../../components/ui/theme';
-import { catalogCopy } from './copy';
-import { peopleCopy } from '../people/copy';
+import { PortalShell } from './portal-shell';
+import { Button } from '../ui/button';
+import { ThemeContext } from '../ui/theme';
+import arCatalog from '../../messages/ar/catalog.json';
+import enCatalog from '../../messages/en/catalog.json';
+import arPeople from '../../messages/ar/people.json';
+import enPeople from '../../messages/en/people.json';
 
-export function CatalogFrame({
+const catalog = { ar: arCatalog, en: enCatalog };
+const people = { ar: arPeople, en: enPeople };
+
+export function PortalFrame({
   locale,
   children,
   name,
@@ -22,7 +28,7 @@ export function CatalogFrame({
   path?: string;
   branding?: { primaryColor: string; logoPng?: string | null } | null;
 }) {
-  const c = catalogCopy(locale);
+  const c = catalog[locale];
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   return (
     <ThemeContext value={theme}>
@@ -45,15 +51,15 @@ export function CatalogFrame({
                 ) : null}
                 {name ?? c.brand}
               </Link>
-              <nav className="raak-actions">
+              <nav className="raak-actions" aria-label={c.services}>
                 <Link href={`/${locale}/services`}>{c.services}</Link>
                 <Link href={`/${locale}/track`}>{c.track}</Link>
-                <Link href={`/${locale}/account`}>{peopleCopy(locale).account}</Link>
+                <Link href={`/${locale}/account`}>{people[locale].account}</Link>
                 <Link href={`/${locale}/workspace/services`}>{c.workspace}</Link>
                 <Link href={`/${locale === 'ar' ? 'en' : 'ar'}${path}`}>{c.language}</Link>
                 <Button
                   variant="ghost"
-                  onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+                  onClick={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
                 >
                   {c.theme}
                 </Button>

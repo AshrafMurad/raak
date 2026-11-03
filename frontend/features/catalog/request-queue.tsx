@@ -13,8 +13,6 @@ import {
 } from '../../components/ui/dialog';
 import { Feedback } from '../../components/ui/feedback';
 import { StatusBadge } from '../../components/ui/status-badge';
-import { CatalogFrame } from './frame';
-import { WorkspaceNav } from './workspace-nav';
 import { catalogCopy, localized } from './copy';
 import type { RequestView } from './contracts';
 
@@ -53,8 +51,7 @@ export function RequestQueue({ locale }: { locale: Locale }) {
     });
   }
   return (
-    <CatalogFrame locale={locale} path="/workspace/requests">
-      <WorkspaceNav locale={locale} />
+    <>
       <h1>{c.queue}</h1>
       <p>
         {c.notifications}: <bdi>{notifications}</bdi>
@@ -184,6 +181,6 @@ export function RequestQueue({ locale }: { locale: Locale }) {
           </div>
         </DialogContent>
       </Dialog>
-    </CatalogFrame>
+    </>
   );
 }

@@ -8,6 +8,8 @@ import arAuth from '../messages/ar/auth.json';
 import enAuth from '../messages/en/auth.json';
 import arPlatform from '../messages/ar/platform.json';
 import enPlatform from '../messages/en/platform.json';
+import arWorkspace from '../messages/ar/workspace.json';
+import enWorkspace from '../messages/en/workspace.json';
 
 export const SUPPORTED_LOCALES = ['ar', 'en'] as const;
 
@@ -28,8 +30,18 @@ export function otherLocale(locale: Locale): Locale {
   return locale === 'ar' ? 'en' : 'ar';
 }
 
-const ar = { ...arCommon, auth: arAuth, platform: arPlatform };
-const en: typeof ar = { ...enCommon, auth: enAuth, platform: enPlatform };
+const ar = {
+  ...arCommon,
+  auth: arAuth,
+  platform: arPlatform,
+  workspace: arWorkspace,
+};
+const en: typeof ar = {
+  ...enCommon,
+  auth: enAuth,
+  platform: enPlatform,
+  workspace: enWorkspace,
+};
 
 export type Dictionary = typeof ar;
 

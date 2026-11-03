@@ -23,9 +23,13 @@ permissions and content requirements.
   spacing, radius, shadow and motion values into that central token system, with
   semantic component tokens where necessary. Both themes reference the same
   semantic token names. Pages consume these tokens rather than copying values.
-- Shared primitives belong in `frontend/components/ui/`; reusable navigation and
-  portal layout compositions belong in `frontend/components/layout/`. These are
-  the target shared locations, not a claim that extraction is already complete.
+- Shared primitives belong in `frontend/components/ui/`; reusable navigation,
+  workspace and portal layout compositions belong in
+  `frontend/components/layout/` (`WorkspaceFrame`, `WorkspaceNavigation`,
+  `PortalFrame`, `PortalShell`), composed by the locale-validating
+  `app/[locale]/workspace/layout.tsx`. Workspace and portal shell ownership was
+  moved out of `features/catalog` in the Sprint 5 architecture stabilization;
+  no business feature may own the shared shell or global navigation.
   Feature-specific compositions stay with their feature and consume shared UI.
 - The preview/component board and production screens must import the same shared
   implementations and styles. The board is the living visual reference; static

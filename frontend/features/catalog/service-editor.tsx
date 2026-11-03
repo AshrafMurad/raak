@@ -14,8 +14,6 @@ import {
   DialogDescription,
   DialogClose,
 } from '../../components/ui/dialog';
-import { CatalogFrame } from './frame';
-import { WorkspaceNav } from './workspace-nav';
 import { catalogCopy, localized } from './copy';
 import type { Service, ServiceConfig } from './contracts';
 
@@ -110,8 +108,7 @@ export function ServiceEditor({ locale }: { locale: Locale }) {
     </Field>
   );
   return (
-    <CatalogFrame locale={locale} path="/workspace/services">
-      <WorkspaceNav locale={locale} />
+    <>
       <h1>{c.services}</h1>
       {message ? <Feedback title={message} /> : null}
       <section className="raak-card">
@@ -394,6 +391,6 @@ export function ServiceEditor({ locale }: { locale: Locale }) {
           </div>
         </DialogContent>
       </Dialog>
-    </CatalogFrame>
+    </>
   );
 }

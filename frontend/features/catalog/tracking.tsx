@@ -10,7 +10,7 @@ import { Button } from '../../components/ui/button';
 import { Field, Input } from '../../components/ui/field';
 import { Feedback } from '../../components/ui/feedback';
 import { StatusBadge } from '../../components/ui/status-badge';
-import { CatalogFrame } from './frame';
+import { PortalFrame } from '../../components/layout/portal-frame';
 import { catalogCopy, localized } from './copy';
 import type { RequestView } from './contracts';
 import { PortalQuotes, PortalRequestActions } from '../commercial/portal-quotes';
@@ -73,7 +73,7 @@ export function GuestTracking({ locale }: { locale: Locale }) {
     });
   }
   return (
-    <CatalogFrame locale={locale} path="/track">
+    <PortalFrame locale={locale} path="/track">
       <h1>{view ? c.verified : c.track}</h1>
       {view ? (
         <>
@@ -169,6 +169,6 @@ export function GuestTracking({ locale }: { locale: Locale }) {
           </form>
         </>
       )}
-    </CatalogFrame>
+    </PortalFrame>
   );
 }
