@@ -1,0 +1,85 @@
+.raak-care-plans {
+  display: contents;
+  overflow-wrap: anywhere;
+}
+.raak-care-plans .raak-scheduling-grid,
+.raak-care-plans .raak-scheduling-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.raak-care-plans .raak-scheduling-grid > .rv-field,
+.raak-care-plans .raak-scheduling-grid > fieldset {
+  min-inline-size: 0;
+}
+.raak-care-plans .raak-scheduling-span {
+  grid-column: 1 / -1;
+}
+.raak-care-plans fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.raak-care-plans legend {
+  font-size: 13px;
+  font-weight: 500;
+  margin-block-end: 8px;
+}
+.raak-care-plans .raak-weekdays,
+.raak-care-plans .raak-task-row,
+.raak-care-plans .raak-scheduling-list-row,
+.raak-care-plans .raak-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.raak-care-plans .raak-weekdays label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.raak-care-plans .raak-task-row .rv-field {
+  flex: 1 1 260px;
+}
+.raak-care-plans .raak-scheduling-metric {
+  border-inline-start: 3px solid var(--rv-accent);
+  padding-inline-start: 14px;
+}
+.raak-care-plans .raak-scheduling-metric strong {
+  display: block;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.raak-care-plans .raak-scheduling-metric span,
+.raak-care-plans .raak-scheduling-meta {
+  color: var(--rv-muted);
+  font-size: 13px;
+}
+.raak-care-plans .raak-scheduling-table {
+  min-width: 760px;
+}
+.raak-care-plans .raak-scheduling-table td:last-child,
+.raak-care-plans .raak-scheduling-table th:last-child {
+  width: auto;
+  padding-inline-end: 14px;
+}
+.raak-care-plans .raak-scheduling-dialog-form {
+  display: grid;
+  gap: 16px;
+}
+.raak-care-plans .raak-scheduling-code {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 767px) {
+  .raak-care-plans .raak-scheduling-grid,
+  .raak-care-plans .raak-scheduling-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .raak-care-plans .raak-scheduling-span {
+    grid-column: auto;
+  }
+}
