@@ -5,8 +5,9 @@ import type { AuthState } from '../auth/guards';
 import { agencyAction, stale } from '../common/agency-action';
 import { recordChange } from '../common/record-change';
 import { caregiverRow } from './caregiver.service';
+import { scanCaregiverAssignments } from '../scheduling';
 
-export function createAvailabilityService(db: DatabaseClient) {
+export function createAvailabilityService(db: DatabaseClient, now: () => Date) {
   return {
     replace: (auth: AuthState, id: string, input: z.infer<typeof AvailabilitySchema>) =>
       db.$transaction(async (tx) => {
@@ -29,7 +30,20 @@ export function createAvailabilityService(db: DatabaseClient) {
           CaregiverEvents.AVAILABILITY_CHANGED,
           'caregiver',
         );
-        return { id, availabilityRevision: row.availabilityRevision + 1 };
+        // Weekly-hours changes can invalidate confirmed assignments (F10):
+        // scan inside the caregiver lock and flag, never silently reassign.
+        const impact = await scanCaregiverAssignments(tx, {
+          tenantId,
+          caregiverId: id,
+          actorId: auth.session.principalId,
+          now: now(),
+          trigger: 'availability_replaced',
+        });
+        return {
+          id,
+          availabilityRevision: row.availabilityRevision + 1,
+          impactScan: impact,
+        };
       }),
     exception: (auth: AuthState, id: string, input: z.infer<typeof ExceptionSchema>) =>
       db.$transaction(async (tx) => {
@@ -59,10 +73,17 @@ export function createAvailabilityService(db: DatabaseClient) {
           data: { availabilityRevision: { increment: 1 } },
         });
         await recordChange(tx, auth, tenantId, id, CaregiverEvents.EXCEPTION_CHANGED, 'caregiver');
+        const impact = await scanCaregiverAssignments(tx, {
+          tenantId,
+          caregiverId: id,
+          actorId: auth.session.principalId,
+          now: now(),
+          trigger: 'exception_changed',
+        });
         return {
           id: exception.id,
           availabilityRevision: row.availabilityRevision + 1,
-          impactScanDeferredToScheduling: true,
+          impactScan: impact,
         };
       }),
   };

@@ -71,6 +71,16 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 
 ## Tests
 
+### Implemented Sprint 5 assignment-health events
+
+`visit.reassignment_flagged` and `visit.reassignment_resolved` are durable
+operational events. Both commit with the health/version change and append-only
+audit inside the configuration writer's transaction. The event aggregate is the
+visit ID and payload contains the caregiver ID only. Qualification, profile,
+availability and service-authorization changes use the same hard filters; no
+visit is silently reassigned or cancelled. General notification delivery remains
+owned by Sprint 7; writing these events is not a claim of email delivery.
+
 ### Implemented Sprint 4 security verification
 
 `email.customer_verification` and `email.customer_claim` join the existing durable

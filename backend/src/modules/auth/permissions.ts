@@ -27,6 +27,11 @@ export const PERMISSION_ACTIONS = [
   'caregivers.self_read',
   'documents.manage',
   'documents.read_granted',
+  'careplans.read',
+  'careplans.manage',
+  'careplans.clinical_approve',
+  'visits.read',
+  'scheduling.manage',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -75,6 +80,10 @@ export function authorize(
           'caregivers.read',
           'caregivers.manage',
           'documents.manage',
+          'careplans.read',
+          'careplans.manage',
+          'visits.read',
+          'scheduling.manage',
         ].includes(action)
       )
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
@@ -86,6 +95,13 @@ export function authorize(
       )
         return { allowed: admin };
       if (action === 'caregivers.self_read') return { allowed: principal.role === 'CAREGIVER' };
+      // A06 audience gate only: the care-plan service must additionally verify
+      // the approver's agency-verified qualification for the exact service
+      // (denies by default; titles never confer clinical authority).
+      if (action === 'careplans.clinical_approve')
+        return {
+          allowed: admin || principal.role === 'CARE_COORDINATOR' || principal.role === 'CAREGIVER',
+        };
     }
     if (action === 'staff.invitations.create') {
       return {

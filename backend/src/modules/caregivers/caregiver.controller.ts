@@ -20,7 +20,7 @@ import { createAvailabilityService } from './availability.service';
 export function createCaregiverRouter(db: DatabaseClient, now: () => Date) {
   const router = Router();
   const service = createCaregiverService(db, now);
-  const availability = createAvailabilityService(db);
+  const availability = createAvailabilityService(db, now);
   const id = (req: Request) => {
     const value = z.uuid().safeParse(req.params.id);
     if (!value.success) throw missing();
