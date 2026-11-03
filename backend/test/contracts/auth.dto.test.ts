@@ -34,8 +34,10 @@ describe('RegisterAgencySchema', () => {
 
   it('rejects unknown extra fields', () => {
     expect(
-      RegisterAgencySchema.safeParse({ ...validRegister, tenantId: '11111111-1111-4111-8111-111111111111' })
-        .success,
+      RegisterAgencySchema.safeParse({
+        ...validRegister,
+        tenantId: '11111111-1111-4111-8111-111111111111',
+      }).success,
     ).toBe(false);
   });
 
@@ -58,9 +60,15 @@ describe('RegisterAgencySchema', () => {
   });
 
   it('requires a 3-letter uppercase currency and a 10..128 char owner password', () => {
-    expect(RegisterAgencySchema.safeParse({ ...validRegister, currency: 'sar' }).success).toBe(false);
-    expect(RegisterAgencySchema.safeParse({ ...validRegister, currency: 'SARA' }).success).toBe(false);
-    expect(RegisterAgencySchema.safeParse({ ...validRegister, ownerPassword: 'short1!' }).success).toBe(false);
+    expect(RegisterAgencySchema.safeParse({ ...validRegister, currency: 'sar' }).success).toBe(
+      false,
+    );
+    expect(RegisterAgencySchema.safeParse({ ...validRegister, currency: 'SARA' }).success).toBe(
+      false,
+    );
+    expect(
+      RegisterAgencySchema.safeParse({ ...validRegister, ownerPassword: 'short1!' }).success,
+    ).toBe(false);
     expect(
       RegisterAgencySchema.safeParse({ ...validRegister, ownerPassword: 'x'.repeat(129) }).success,
     ).toBe(false);
@@ -69,9 +77,15 @@ describe('RegisterAgencySchema', () => {
 
 describe('simple auth schemas', () => {
   it('LoginSchema rejects unknown fields and bad emails', () => {
-    expect(LoginSchema.safeParse({ email: 'a@b.invalid', password: 'Synthetic-1!' }).success).toBe(true);
-    expect(LoginSchema.safeParse({ email: 'a@b.invalid', password: 'x', role: 'AGENCY_OWNER' }).success).toBe(false);
-    expect(LoginSchema.safeParse({ email: 'not-an-email', password: 'Synthetic-1!' }).success).toBe(false);
+    expect(LoginSchema.safeParse({ email: 'a@b.invalid', password: 'Synthetic-1!' }).success).toBe(
+      true,
+    );
+    expect(
+      LoginSchema.safeParse({ email: 'a@b.invalid', password: 'x', role: 'AGENCY_OWNER' }).success,
+    ).toBe(false);
+    expect(LoginSchema.safeParse({ email: 'not-an-email', password: 'Synthetic-1!' }).success).toBe(
+      false,
+    );
   });
 
   it('token schemas require an opaque non-trivial string', () => {
@@ -79,7 +93,9 @@ describe('simple auth schemas', () => {
     expect(VerifyEmailSchema.safeParse({ token }).success).toBe(true);
     expect(VerifyEmailSchema.safeParse({ token: 'short' }).success).toBe(false);
     expect(ResetPasswordSchema.safeParse({ token, newPassword: 'short' }).success).toBe(false);
-    expect(ResetPasswordSchema.safeParse({ token, newPassword: 'Synthetic-1!' }).success).toBe(true);
+    expect(ResetPasswordSchema.safeParse({ token, newPassword: 'Synthetic-1!' }).success).toBe(
+      true,
+    );
     expect(ForgotPasswordSchema.safeParse({ email: 'x' }).success).toBe(false);
   });
 });
@@ -87,9 +103,9 @@ describe('simple auth schemas', () => {
 describe('CreateInvitationSchema', () => {
   it('accepts admin/coordinator/caregiver roles with an optional caregiver profile', () => {
     for (const role of ['AGENCY_ADMIN', 'CARE_COORDINATOR', 'CAREGIVER'] as const) {
-      expect(
-        CreateInvitationSchema.safeParse({ email: 'new@example.invalid', role }).success,
-      ).toBe(true);
+      expect(CreateInvitationSchema.safeParse({ email: 'new@example.invalid', role }).success).toBe(
+        true,
+      );
     }
     expect(
       CreateInvitationSchema.safeParse({
@@ -102,9 +118,12 @@ describe('CreateInvitationSchema', () => {
 
   it('rejects AGENCY_OWNER invitations, bad roles and profile without name', () => {
     expect(
-      CreateInvitationSchema.safeParse({ email: 'x@example.invalid', role: 'AGENCY_OWNER' }).success,
+      CreateInvitationSchema.safeParse({ email: 'x@example.invalid', role: 'AGENCY_OWNER' })
+        .success,
     ).toBe(false);
-    expect(CreateInvitationSchema.safeParse({ email: 'x@example.invalid', role: 'SUPERUSER' }).success).toBe(false);
+    expect(
+      CreateInvitationSchema.safeParse({ email: 'x@example.invalid', role: 'SUPERUSER' }).success,
+    ).toBe(false);
     expect(
       CreateInvitationSchema.safeParse({
         email: 'x@example.invalid',

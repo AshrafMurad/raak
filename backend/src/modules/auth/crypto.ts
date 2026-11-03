@@ -51,7 +51,12 @@ export async function verifyPassword(password: string, stored: PasswordHash): Pr
   if (n !== SCRYPT_N || r !== SCRYPT_r || p !== SCRYPT_p) return false;
   const saltPart = parts[4];
   const hashPart = parts[5];
-  if (saltPart === undefined || hashPart === undefined || saltPart.length === 0 || hashPart.length === 0) {
+  if (
+    saltPart === undefined ||
+    hashPart === undefined ||
+    saltPart.length === 0 ||
+    hashPart.length === 0
+  ) {
     return false;
   }
   let salt: Buffer;

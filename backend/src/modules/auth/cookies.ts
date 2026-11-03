@@ -19,7 +19,11 @@ export interface SessionCookieInput {
   expiresAt: Date;
 }
 
-export function setSessionCookies(res: Response, realm: AuthRealm, input: SessionCookieInput): void {
+export function setSessionCookies(
+  res: Response,
+  realm: AuthRealm,
+  input: SessionCookieInput,
+): void {
   const names = REALM_COOKIE_NAMES[realm];
   res.cookie(names.session, input.sessionToken, {
     httpOnly: true,

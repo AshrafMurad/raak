@@ -55,13 +55,11 @@ export function requireHostRealm(resolver: HostRealmResolver): RequestHandler {
     void (async () => {
       const realm = await resolver(req);
       if (realm.kind === 'REJECTED') {
-        res
-          .status(404)
-          .json(
-            errorEnvelope('RESOURCE_NOT_FOUND', 'Resource not found.', {
-              requestId: res.locals.requestId as string | undefined,
-            }),
-          );
+        res.status(404).json(
+          errorEnvelope('RESOURCE_NOT_FOUND', 'Resource not found.', {
+            requestId: res.locals.requestId as string | undefined,
+          }),
+        );
         return;
       }
       res.locals.realm = realm;
@@ -82,24 +80,20 @@ export function requireSession(db: DatabaseClient): RequestHandler {
       const cookies = parseCookies(req.headers.cookie);
       const sessionToken = cookies[cookieName];
       if (!sessionToken) {
-        res
-          .status(401)
-          .json(
-            errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-              requestId: res.locals.requestId as string | undefined,
-            }),
-          );
+        res.status(401).json(
+          errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+            requestId: res.locals.requestId as string | undefined,
+          }),
+        );
         return;
       }
       const resolved = await resolveSession(db, sessionToken);
       if (!resolved) {
-        res
-          .status(401)
-          .json(
-            errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-              requestId: res.locals.requestId as string | undefined,
-            }),
-          );
+        res.status(401).json(
+          errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+            requestId: res.locals.requestId as string | undefined,
+          }),
+        );
         return;
       }
       // Realm/tenant binding: a session cookie from another realm or tenant
@@ -107,13 +101,11 @@ export function requireSession(db: DatabaseClient): RequestHandler {
       // never a shared sign-in).
       if (realm.kind === 'PLATFORM') {
         if (resolved.session.principalType !== 'PLATFORM_OPERATOR') {
-          res
-            .status(401)
-            .json(
-              errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-                requestId: res.locals.requestId as string | undefined,
-              }),
-            );
+          res.status(401).json(
+            errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+              requestId: res.locals.requestId as string | undefined,
+            }),
+          );
           return;
         }
       } else {
@@ -123,13 +115,11 @@ export function requireSession(db: DatabaseClient): RequestHandler {
             resolved.session.principalType !== 'AGENCY_CUSTOMER') ||
           resolved.session.tenantId !== tenant.tenantId
         ) {
-          res
-            .status(401)
-            .json(
-              errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-                requestId: res.locals.requestId as string | undefined,
-              }),
-            );
+          res.status(401).json(
+            errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+              requestId: res.locals.requestId as string | undefined,
+            }),
+          );
           return;
         }
       }
@@ -157,24 +147,20 @@ export function requireCsrf(): RequestHandler {
     }
     const auth = req.auth;
     if (!auth) {
-      res
-        .status(401)
-        .json(
-          errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-            requestId: res.locals.requestId as string | undefined,
-          }),
-        );
+      res.status(401).json(
+        errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+          requestId: res.locals.requestId as string | undefined,
+        }),
+      );
       return;
     }
     const header = req.get('X-CSRF-Token');
     if (!header || !safeEqual(hashToken(header), auth.csrfTokenHash)) {
-      res
-        .status(403)
-        .json(
-          errorEnvelope('FORBIDDEN', 'CSRF token missing or invalid.', {
-            requestId: res.locals.requestId as string | undefined,
-          }),
-        );
+      res.status(403).json(
+        errorEnvelope('FORBIDDEN', 'CSRF token missing or invalid.', {
+          requestId: res.locals.requestId as string | undefined,
+        }),
+      );
       return;
     }
     next();
@@ -185,24 +171,20 @@ export function requirePermission(action: PermissionAction): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const auth = req.auth;
     if (!auth) {
-      res
-        .status(401)
-        .json(
-          errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
-            requestId: res.locals.requestId as string | undefined,
-          }),
-        );
+      res.status(401).json(
+        errorEnvelope('UNAUTHENTICATED', 'Authentication required.', {
+          requestId: res.locals.requestId as string | undefined,
+        }),
+      );
       return;
     }
     const decision = authorize(principalFromAuth(auth), action);
     if (!decision.allowed) {
-      res
-        .status(403)
-        .json(
-          errorEnvelope('FORBIDDEN', 'You are not allowed to perform this action.', {
-            requestId: res.locals.requestId as string | undefined,
-          }),
-        );
+      res.status(403).json(
+        errorEnvelope('FORBIDDEN', 'You are not allowed to perform this action.', {
+          requestId: res.locals.requestId as string | undefined,
+        }),
+      );
       return;
     }
     next();

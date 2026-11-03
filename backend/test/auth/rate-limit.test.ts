@@ -54,7 +54,12 @@ describe('rateLimit middleware', () => {
     const keyed: Express = express();
     keyed.post(
       '/limited',
-      limiter({ name: 'limited', key: (req) => String(req.get('X-Caller') ?? 'unknown'), limit: 1, windowMs: 60_000 }),
+      limiter({
+        name: 'limited',
+        key: (req) => String(req.get('X-Caller') ?? 'unknown'),
+        limit: 1,
+        windowMs: 60_000,
+      }),
       (_req, res) => res.json({ data: { ok: true } }),
     );
     expect((await request(keyed).post('/limited').set('X-Caller', 'alice')).status).toBe(200);

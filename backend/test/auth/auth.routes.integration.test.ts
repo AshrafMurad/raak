@@ -118,11 +118,19 @@ describe.skipIf(!hasDatabase)('agency registration and owner verification', () =
     const concurrentApp = makeApp({ registerPerHour: 100 });
     try {
       const responses = await Promise.all([
-        request(concurrentApp).post('/v1/agencies/register').set('Host', 'platform.localhost').send(registerPayload(concurrentSlug)),
-        request(concurrentApp).post('/v1/agencies/register').set('Host', 'platform.localhost').send(registerPayload(concurrentSlug)),
+        request(concurrentApp)
+          .post('/v1/agencies/register')
+          .set('Host', 'platform.localhost')
+          .send(registerPayload(concurrentSlug)),
+        request(concurrentApp)
+          .post('/v1/agencies/register')
+          .set('Host', 'platform.localhost')
+          .send(registerPayload(concurrentSlug)),
       ]);
       expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
-      expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TENANT_SLUG_TAKEN');
+      expect(responses.find((response) => response.status === 409)?.body.error.code).toBe(
+        'TENANT_SLUG_TAKEN',
+      );
     } finally {
       const tenant = await db.tenant.findUnique({ where: { slug: concurrentSlug } });
       if (tenant) {
@@ -198,13 +206,25 @@ describe.skipIf(!hasDatabase)('agency registration and owner verification', () =
     let second!: Promise<request.Response>;
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "email_tokens" WHERE "id" = ${tokenRow.id}::uuid FOR UPDATE`;
-      first = Promise.resolve(request(app).post('/v1/auth/verify-email').set('Host', 'platform.localhost').send({ token: generated.token }));
-      second = Promise.resolve(request(app).post('/v1/auth/verify-email').set('Host', 'platform.localhost').send({ token: generated.token }));
+      first = Promise.resolve(
+        request(app)
+          .post('/v1/auth/verify-email')
+          .set('Host', 'platform.localhost')
+          .send({ token: generated.token }),
+      );
+      second = Promise.resolve(
+        request(app)
+          .post('/v1/auth/verify-email')
+          .set('Host', 'platform.localhost')
+          .send({ token: generated.token }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
     const responses = await Promise.all([first, second]);
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe('TOKEN_ALREADY_USED');
+    expect(responses.find((response) => response.status === 409)?.body.error.code).toBe(
+      'TOKEN_ALREADY_USED',
+    );
   });
 
   it('rejects a token that expires between validation and atomic consumption', async () => {
@@ -294,10 +314,24 @@ describe.skipIf(!hasDatabase)('realm login, logout and me', () => {
     const tenantA = await db.tenant.findUnique({ where: { slug: slugA } });
     const tenantB = await db.tenant.findUnique({ where: { slug: slugB } });
     await db.staffAccount.create({
-      data: { tenantId: tenantA!.id, emailNormalized: sharedEmail, passwordHash, role: 'CARE_COORDINATOR', status: 'ACTIVE', emailVerifiedAt: new Date() },
+      data: {
+        tenantId: tenantA!.id,
+        emailNormalized: sharedEmail,
+        passwordHash,
+        role: 'CARE_COORDINATOR',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
     });
     await db.staffAccount.create({
-      data: { tenantId: tenantB!.id, emailNormalized: sharedEmail, passwordHash, role: 'AGENCY_OWNER', status: 'ACTIVE', emailVerifiedAt: new Date() },
+      data: {
+        tenantId: tenantB!.id,
+        emailNormalized: sharedEmail,
+        passwordHash,
+        role: 'AGENCY_OWNER',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
     });
   });
 
@@ -434,7 +468,9 @@ describe.skipIf(!hasDatabase)('realm login, logout and me', () => {
       .set('Host', 'platform.localhost')
       .send({ email: 'op@routes.invalid', password: FIXTURE.password });
     expect(login.status).toBe(200);
-    const session = /raak_session_platform=([^;]+)/.exec(((login.headers['set-cookie'] ?? []) as unknown as string[]).join('\n'))?.[1];
+    const session = /raak_session_platform=([^;]+)/.exec(
+      ((login.headers['set-cookie'] ?? []) as unknown as string[]).join('\n'),
+    )?.[1];
     expect(session).toBeDefined();
 
     const onAgencyHost = await request(app)
@@ -493,7 +529,13 @@ describe.skipIf(!hasDatabase)('I05: customer accounts with the same email in two
     // The same customer email exists independently in both tenants (D03/I05).
     for (const tenantId of [tenantAId, tenantBId]) {
       await db.customerAccount.create({
-        data: { tenantId, emailNormalized: sharedEmail, passwordHash, status: 'ACTIVE', emailVerifiedAt: new Date() },
+        data: {
+          tenantId,
+          emailNormalized: sharedEmail,
+          passwordHash,
+          status: 'ACTIVE',
+          emailVerifiedAt: new Date(),
+        },
       });
     }
   });
@@ -598,11 +640,26 @@ describe.skipIf(!hasDatabase)('password reset', () => {
     db = getPrisma();
     app = makeApp();
     await db.tenant.create({
-      data: { slug, legalName: 'RST', displayName: 'R', status: 'ACTIVE', timezone: 'Asia/Riyadh', currency: 'SAR', supportEmail: `s@${slug}.invalid` },
+      data: {
+        slug,
+        legalName: 'RST',
+        displayName: 'R',
+        status: 'ACTIVE',
+        timezone: 'Asia/Riyadh',
+        currency: 'SAR',
+        supportEmail: `s@${slug}.invalid`,
+      },
     });
     const tenant = await db.tenant.findUnique({ where: { slug } });
     await db.staffAccount.create({
-      data: { tenantId: tenant!.id, emailNormalized: email, passwordHash: await hashPassword(FIXTURE.password), role: 'CARE_COORDINATOR', status: 'ACTIVE', emailVerifiedAt: new Date() },
+      data: {
+        tenantId: tenant!.id,
+        emailNormalized: email,
+        passwordHash: await hashPassword(FIXTURE.password),
+        role: 'CARE_COORDINATOR',
+        status: 'ACTIVE',
+        emailVerifiedAt: new Date(),
+      },
     });
   });
 
@@ -658,7 +715,10 @@ describe.skipIf(!hasDatabase)('password reset', () => {
         data: { sessionVersion: { increment: 1 } },
       });
       requestReset = Promise.resolve(
-        request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email }),
+        request(app)
+          .post('/v1/auth/forgot-password')
+          .set('Host', `${slug}.localhost`)
+          .send({ email }),
       );
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
@@ -675,10 +735,18 @@ describe.skipIf(!hasDatabase)('password reset', () => {
       .set('Host', `${slug}.localhost`)
       .send({ email, password: FIXTURE.password });
     expect(login.status).toBe(200);
-    const session = /raak_session_agency=([^;]+)/.exec(((login.headers['set-cookie'] ?? []) as unknown as string[]).join('\n'))?.[1];
+    const session = /raak_session_agency=([^;]+)/.exec(
+      ((login.headers['set-cookie'] ?? []) as unknown as string[]).join('\n'),
+    )?.[1];
 
-    await request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email });
-    await request(app).post('/v1/auth/forgot-password').set('Host', `${slug}.localhost`).send({ email });
+    await request(app)
+      .post('/v1/auth/forgot-password')
+      .set('Host', `${slug}.localhost`)
+      .send({ email });
+    await request(app)
+      .post('/v1/auth/forgot-password')
+      .set('Host', `${slug}.localhost`)
+      .send({ email });
     const [token, olderToken] = await resetTokensFor();
 
     const reset = await request(app)
@@ -729,7 +797,10 @@ describe.skipIf(!hasDatabase)('register rate limit', () => {
       ownerEmail: `o@${slug}.invalid`,
       ownerPassword: FIXTURE.password,
     };
-    const first = await request(app).post('/v1/agencies/register').set('Host', 'platform.localhost').send(payload);
+    const first = await request(app)
+      .post('/v1/agencies/register')
+      .set('Host', 'platform.localhost')
+      .send(payload);
     const second = await request(app)
       .post('/v1/agencies/register')
       .set('Host', 'platform.localhost')

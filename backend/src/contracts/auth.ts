@@ -50,7 +50,9 @@ export const RegisterAgencySchema = z
   .readonly();
 export type RegisterAgencyDto = z.infer<typeof RegisterAgencySchema>;
 
-export const LoginSchema = z.strictObject({ email: email, password: z.string().min(1).max(PASSWORD_MAX) }).readonly();
+export const LoginSchema = z
+  .strictObject({ email: email, password: z.string().min(1).max(PASSWORD_MAX) })
+  .readonly();
 export type LoginDto = z.infer<typeof LoginSchema>;
 
 export const VerifyEmailSchema = z.strictObject({ token: opaqueToken }).readonly();

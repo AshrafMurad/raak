@@ -46,7 +46,14 @@ describe.skipIf(!hasDatabase)('session service', () => {
 
   async function makeStaff(tenantId: string, email: string, role: StaffRole = 'CARE_COORDINATOR') {
     const staff = await db.staffAccount.create({
-      data: { tenantId, emailNormalized: email, passwordHash: syntheticPassword, role, status: 'ACTIVE', emailVerifiedAt: now() },
+      data: {
+        tenantId,
+        emailNormalized: email,
+        passwordHash: syntheticPassword,
+        role,
+        status: 'ACTIVE',
+        emailVerifiedAt: now(),
+      },
     });
     createdPrincipalIds.push(staff.id);
     return staff;
@@ -71,8 +78,12 @@ describe.skipIf(!hasDatabase)('session service', () => {
       await db.auditEvent.deleteMany({ where: { tenantId: { in: createdTenantIds } } });
     }
     await db.staffAccount.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
-    await db.customerAccount.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
-    await db.platformOperator.deleteMany({ where: { emailNormalized: { contains: 'sessions-test' } } });
+    await db.customerAccount.deleteMany({
+      where: { emailNormalized: { contains: 'sessions-test' } },
+    });
+    await db.platformOperator.deleteMany({
+      where: { emailNormalized: { contains: 'sessions-test' } },
+    });
     await db.tenant.deleteMany({ where: { slug: { contains: 'sessions-test' } } });
   });
 
@@ -100,7 +111,11 @@ describe.skipIf(!hasDatabase)('session service', () => {
 
   it('resolves platform operator sessions without a tenant binding', async () => {
     const operator = await db.platformOperator.create({
-      data: { emailNormalized: 'op@sessions-test.invalid', passwordHash: syntheticPassword, status: 'ACTIVE' },
+      data: {
+        emailNormalized: 'op@sessions-test.invalid',
+        passwordHash: syntheticPassword,
+        status: 'ACTIVE',
+      },
     });
     createdPrincipalIds.push(operator.id);
     const { sessionToken } = await createSession(db, {
@@ -163,13 +178,20 @@ describe.skipIf(!hasDatabase)('session service', () => {
       now,
     });
     expect(await resolveSession(db, sessionToken, now)).not.toBeNull();
-    await db.staffAccount.update({ where: { id: staff.id }, data: { sessionVersion: staff.sessionVersion + 1 } });
+    await db.staffAccount.update({
+      where: { id: staff.id },
+      data: { sessionVersion: staff.sessionVersion + 1 },
+    });
     expect(await resolveSession(db, sessionToken, now)).toBeNull();
   });
 
   it('returns null when the tenant is suspended, but allows an owner while PENDING_APPROVAL', async () => {
     const suspended = await makeTenant('sessions-test-e', 'SUSPENDED');
-    const suspendedStaff = await makeStaff(suspended.id, 's@sessions-test.invalid', 'CARE_COORDINATOR');
+    const suspendedStaff = await makeStaff(
+      suspended.id,
+      's@sessions-test.invalid',
+      'CARE_COORDINATOR',
+    );
     const s1 = await createSession(db, {
       principalType: 'AGENCY_STAFF',
       principalId: suspendedStaff.id,
@@ -197,7 +219,11 @@ describe.skipIf(!hasDatabase)('session service', () => {
     });
 
     // Non-owner staff on a pending tenant is denied.
-    const pendingCoord = await makeStaff(pending.id, 'pc@sessions-test.invalid', 'CARE_COORDINATOR');
+    const pendingCoord = await makeStaff(
+      pending.id,
+      'pc@sessions-test.invalid',
+      'CARE_COORDINATOR',
+    );
     const s3 = await createSession(db, {
       principalType: 'AGENCY_STAFF',
       principalId: pendingCoord.id,

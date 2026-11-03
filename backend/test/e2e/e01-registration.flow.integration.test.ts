@@ -52,7 +52,9 @@ describe.skipIf(!hasDatabase)('E01 agency registration (Sprint 1 slice)', () => 
 
   afterAll(async () => {
     if (tenantId) {
-      await db.authSession.deleteMany({ where: { OR: [{ tenantId }, { principalId: operatorId }] } });
+      await db.authSession.deleteMany({
+        where: { OR: [{ tenantId }, { principalId: operatorId }] },
+      });
       await db.emailToken.deleteMany({ where: { tenantId } });
       await db.staffInvitation.deleteMany({ where: { tenantId } });
       await db.outboxEvent.deleteMany({ where: { tenantId } });
@@ -116,7 +118,9 @@ describe.skipIf(!hasDatabase)('E01 agency registration (Sprint 1 slice)', () => 
       .send({ email: operatorEmail, password });
     expect(operatorLogin.status).toBe(200);
     const operatorCookies = (operatorLogin.headers['set-cookie'] ?? []) as unknown as string[];
-    const operatorSession = operatorCookies.find((value) => value.startsWith('raak_session_platform='))?.split(';')[0];
+    const operatorSession = operatorCookies
+      .find((value) => value.startsWith('raak_session_platform='))
+      ?.split(';')[0];
     const csrf = operatorLogin.body.data.csrfToken as string;
 
     const activation = await request(app)

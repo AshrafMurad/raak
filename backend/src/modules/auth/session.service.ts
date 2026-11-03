@@ -112,7 +112,11 @@ export async function resolveSession(
 
   if (row.principalType === 'PLATFORM_OPERATOR') {
     const operator = await db.platformOperator.findUnique({ where: { id: row.principalId } });
-    if (!operator || operator.status !== 'ACTIVE' || operator.sessionVersion !== row.sessionVersion) {
+    if (
+      !operator ||
+      operator.status !== 'ACTIVE' ||
+      operator.sessionVersion !== row.sessionVersion
+    ) {
       return null;
     }
     return {
@@ -180,7 +184,11 @@ export async function resolveSession(
   };
 }
 
-export async function revokeSession(db: DatabaseClient, sessionId: string, now: () => Date = () => new Date()): Promise<void> {
+export async function revokeSession(
+  db: DatabaseClient,
+  sessionId: string,
+  now: () => Date = () => new Date(),
+): Promise<void> {
   await db.authSession.update({
     where: { id: sessionId },
     data: { revokedAt: now() },
