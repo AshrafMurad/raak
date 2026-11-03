@@ -16,7 +16,12 @@ interface PageShellProps {
 
 const capabilityPaths = new Set(['/verify-email', '/reset-password', '/accept-invitation']);
 
-function LocaleSwitch({ href, locale, label, preserveCapability }: {
+function LocaleSwitch({
+  href,
+  locale,
+  label,
+  preserveCapability,
+}: {
   href: string;
   locale: Locale;
   label: string;
@@ -26,11 +31,20 @@ function LocaleSwitch({ href, locale, label, preserveCapability }: {
   useEffect(() => {
     setResolvedHref(capabilityLocaleHref(href, new URL(window.location.href)));
   }, [href]);
-  const className = 'rounded-[var(--raak-radius-control)] border border-line bg-surface px-4 py-2 text-sm font-medium text-brand hover:bg-brand-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
+  const className =
+    'rounded-[var(--raak-radius-control)] border border-line bg-surface px-4 py-2 text-sm font-medium text-brand hover:bg-brand-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
   if (resolvedHref === null) {
-    return <span aria-disabled="true" className={`${className} opacity-60`}>{label}</span>;
+    return (
+      <span aria-disabled="true" className={`${className} opacity-60`}>
+        {label}
+      </span>
+    );
   }
-  return <Link href={resolvedHref} lang={locale} className={className}>{label}</Link>;
+  return (
+    <Link href={resolvedHref} lang={locale} className={className}>
+      {label}
+    </Link>
+  );
 }
 
 export function PageShell({ locale, eyebrow, title, intro, switchPath, children }: PageShellProps) {
@@ -52,7 +66,9 @@ export function PageShell({ locale, eyebrow, title, intro, switchPath, children 
 
       <main className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(480px,1.15fr)]">
         <section className="min-w-0 pt-5 lg:sticky lg:top-10">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-accent">{eyebrow}</p>
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-accent">
+            {eyebrow}
+          </p>
           <h1 className="max-w-xl text-[var(--raak-text-display-size)] font-bold leading-[var(--raak-text-display-line)] text-brand">
             {title}
           </h1>
