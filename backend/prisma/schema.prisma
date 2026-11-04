@@ -21,6 +21,13 @@ model Tenant {
   timezone        String
   currency        String       @db.Char(3)
   travelBufferMin Int          @default(30) @map("travel_buffer_min")
+  /// docs 04 BR-CHG — customer change-request cutoffs (hours before the
+  /// scheduled start) and the late-review policy flag.
+  changeCancelCutoffHours      Int     @default(24) @map("change_cancel_cutoff_hours")
+  changeRescheduleCutoffHours  Int     @default(24) @map("change_reschedule_cutoff_hours")
+  allowLateReview              Boolean @default(true) @map("allow_late_review")
+  /// Optimistic concurrency for scheduling-policy settings edits.
+  settingsVersion              Int     @default(0) @map("settings_version")
   supportEmail    String       @map("support_email")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
@@ -36,6 +43,8 @@ model Tenant {
   documents        Document[]
   carePlans        CarePlan[]
   visits           Visit[]
+  visitNotes       VisitNote[]
+  visitChanges     VisitChangeRequest[]
 
   @@index([status])
   @@map("tenants")
@@ -121,6 +130,9 @@ model StaffAccount {
   patientGrantsReviewed PatientAccess[]
   duplicateReviews      PatientDuplicateReview[]
   approvedPlanVersions  CarePlanVersion[]        @relation("PlanClinicalApprover")
+  visitNotes            VisitNote[]
+  visitChangeDecisions  VisitChangeRequest[]
+  visitReviews          VisitReview[]
 
   @@unique([tenantId, emailNormalized])
   @@unique([tenantId, id])
@@ -144,6 +156,7 @@ model CustomerAccount {
   capabilities    CustomerCapability[]
   grants          PatientAccess[]
   ownedRequests   ServiceRequest[]
+  visitChangeRequests VisitChangeRequest[]
 
   @@unique([tenantId, emailNormalized])
   @@unique([tenantId, id])
@@ -777,6 +790,7 @@ model Visit {
   reviewStatus        String           @default("NOT_REQUIRED") @map("review_status")
   actualStartAt       DateTime?        @map("actual_start_at")
   actualEndAt         DateTime?        @map("actual_end_at")
+  completionSnapshotJson Json?         @map("completion_snapshot_json")
   cancelledReason     String?          @map("cancelled_reason")
   cancelledAt         DateTime?        @map("cancelled_at")
   version             Int              @default(1)
@@ -785,6 +799,9 @@ model Visit {
 
   tasks             VisitTask[]
   assignmentHistory VisitAssignmentHistory[]
+  notes             VisitNote[]
+  changeRequests    VisitChangeRequest[]
+  reviews           VisitReview[]
 
   @@unique([tenantId, id])
   @@index([tenantId, assignedCaregiverId, scheduledStartUtc, status])
@@ -830,4 +847,77 @@ model VisitAssignmentHistory {
   @@unique([tenantId, id])
   @@index([tenantId, visitId])
   @@map("visit_assignment_history")
+}
+
+/// docs 04 BR-VST / docs 06 — visit notes. One editable draft per
+/// (visit, author) until completion finalizes the snapshot; finalized rows
+/// are immutable. Corrections are append-only addenda referencing the
+/// original note (original content never rewritten).
+model VisitNote {
+  id              String     @id @default(uuid()) @db.Uuid
+  tenantId        String     @map("tenant_id") @db.Uuid
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], map: "visit_notes_tenant_id_fkey")
+  visitId         String     @map("visit_id") @db.Uuid
+  visit           Visit      @relation(fields: [tenantId, visitId], references: [tenantId, id], map: "visit_notes_visit_id_fkey")
+  authorId        String     @map("author_id") @db.Uuid
+  author          StaffAccount @relation(fields: [tenantId, authorId], references: [tenantId, id], map: "visit_notes_author_fkey")
+  bodyRestricted  String     @map("body_restricted")
+  isDraft         Boolean    @default(true) @map("is_draft")
+  isAddendum      Boolean    @default(false) @map("is_addendum")
+  parentNoteId    String?    @map("parent_note_id") @db.Uuid
+  parentNote      VisitNote? @relation("NoteCorrection", fields: [tenantId, parentNoteId], references: [tenantId, id], onDelete: Restrict, map: "visit_notes_parent_note_id_fkey")
+  addenda         VisitNote[] @relation("NoteCorrection")
+  reason          String?
+  finalizedAt     DateTime?  @map("finalized_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, visitId])
+  @@map("visit_notes")
+}
+
+/// docs 04 BR-CHG / docs 06 — customer single-occurrence visit change
+/// requests. Original schedule is untouched while PENDING; the partial
+/// unique index (migration) enforces one PENDING request per visit.
+model VisitChangeRequest {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @map("tenant_id") @db.Uuid
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], map: "visit_change_requests_tenant_id_fkey")
+  visitId            String          @map("visit_id") @db.Uuid
+  visit              Visit           @relation(fields: [tenantId, visitId], references: [tenantId, id], map: "visit_change_requests_visit_id_fkey")
+  requesterAccountId String          @map("requester_account_id") @db.Uuid
+  requester          CustomerAccount @relation(fields: [tenantId, requesterAccountId], references: [tenantId, id], map: "visit_change_requests_requester_fkey")
+  type               String
+  status             String          @default("PENDING")
+  urgency            String          @default("NORMAL")
+  proposedStartUtc   DateTime?       @map("proposed_start_utc")
+  reason             String
+  policySnapshotJson Json            @map("policy_snapshot_json")
+  decisionByStaffId  String?         @map("decision_by_staff_id") @db.Uuid
+  decisionBy        StaffAccount?   @relation(fields: [tenantId, decisionByStaffId], references: [tenantId, id], onDelete: Restrict, map: "visit_change_requests_decision_by_fkey")
+  decisionAt         DateTime?       @map("decision_at")
+  decisionReason     String?         @map("decision_reason")
+  withdrawnAt        DateTime?       @map("withdrawn_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, urgency])
+  @@index([tenantId, visitId])
+  @@map("visit_change_requests")
+}
+
+/// Review is independent from execution and correction documentation.
+model VisitReview {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  visitId String @map("visit_id") @db.Uuid
+  visit Visit @relation(fields: [tenantId, visitId], references: [tenantId, id])
+  reviewerId String @map("reviewer_id") @db.Uuid
+  reviewer StaffAccount @relation(fields: [tenantId, reviewerId], references: [tenantId, id])
+  noteRestricted String? @map("note_restricted")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([tenantId, visitId])
+  @@map("visit_reviews")
 }
