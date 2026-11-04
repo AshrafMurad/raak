@@ -11,6 +11,8 @@ import arCatalog from '../../messages/ar/catalog.json';
 import enCatalog from '../../messages/en/catalog.json';
 import arPeople from '../../messages/ar/people.json';
 import enPeople from '../../messages/en/people.json';
+import arVisits from '../../messages/ar/customer-visits.json';
+import enVisits from '../../messages/en/customer-visits.json';
 
 const catalog = { ar: arCatalog, en: enCatalog };
 const people = { ar: arPeople, en: enPeople };
@@ -55,6 +57,11 @@ export function PortalFrame({
                 <Link href={`/${locale}/services`}>{c.services}</Link>
                 <Link href={`/${locale}/track`}>{c.track}</Link>
                 <Link href={`/${locale}/account`}>{people[locale].account}</Link>
+                <Link
+                  href={`/${locale}${path.startsWith('/caregiver') ? '/caregiver/visits' : '/my/visits'}`}
+                >
+                  {(locale === 'ar' ? arVisits : enVisits).myVisits}
+                </Link>
                 <Link href={`/${locale}/workspace/services`}>{c.workspace}</Link>
                 <Link href={`/${locale === 'ar' ? 'en' : 'ar'}${path}`}>{c.language}</Link>
                 <Button
