@@ -1,0 +1,61 @@
+{
+  "myVisits": "My visits",
+  "intro": "Your assigned visits. Times are recorded by the server when you start and complete a visit.",
+  "today": "Today",
+  "prevDay": "Previous day",
+  "nextDay": "Next day",
+  "open": "Open visit",
+  "close": "Close",
+  "loading": "Loading…",
+  "empty": "No assigned visits on this date.",
+  "error": "This action could not be completed. No success has been assumed.",
+  "denied": "You cannot access this visit in the current agency workspace.",
+  "stale": "This visit changed. Refresh before retrying.",
+  "validation": "Review the required fields and task outcomes.",
+  "saved": "The server confirmed this change.",
+  "savedRefreshFailed": "The server confirmed the change, but the latest view could not be loaded. Refresh before making another change.",
+  "patient": "Patient",
+  "service": "Service",
+  "scheduledWindow": "Scheduled window",
+  "startedAt": "Started at",
+  "completedAt": "Completed at",
+  "actualTimes": "Recorded times",
+  "notStarted": "Not started yet",
+  "timezone": "Timezone",
+  "tasks": "Visit tasks",
+  "required": "Required",
+  "optional": "Optional",
+  "markDone": "Mark done",
+  "markNotDone": "Mark not done",
+  "notDoneReason": "Reason (required)",
+  "taskOutcome": {
+    "PENDING": "Pending",
+    "DONE": "Done",
+    "NOT_DONE": "Not done"
+  },
+  "note": "Visit note",
+  "saveNote": "Save draft note",
+  "nextPage": "More visits",
+  "noteHelp": "Your draft is saved on the server and finalized when you complete the visit. After completion it cannot be edited.",
+  "noteFinalized": "Finalized note",
+  "start": "Start visit",
+  "startHelp": "The server records the actual start time.",
+  "complete": "Complete visit",
+  "completeHelp": "Every required task needs an outcome. The server records the actual end time and finalizes your note.",
+  "sections": {
+    "SCHEDULED": "Scheduled",
+    "IN_PROGRESS": "In progress",
+    "COMPLETED": "Completed"
+  },
+  "states": {
+    "SCHEDULED": "Scheduled / confirmed",
+    "IN_PROGRESS": "In progress",
+    "COMPLETED": "Completed"
+  },
+  "review": {
+    "NOT_REQUIRED": "Review not required",
+    "NEEDS_REVIEW": "Needs coordinator review",
+    "REVIEWED": "Reviewed"
+  },
+  "profile": "My profile"
+}
