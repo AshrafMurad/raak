@@ -101,12 +101,17 @@ async function action(page: Page, path: string, run: () => Promise<unknown>, sta
   expect(response.status(), path).toBe(status);
   return response;
 }
-async function login(page: Page, email: string, locale: string) {
+async function login(
+  page: Page,
+  email: string,
+  locale: string,
+  destination = 'workspace/requests',
+) {
   await page.goto(`${base}/${locale}/login`);
   await page.locator('[name=email]').fill(email);
   await page.locator('[name=password]').fill(password);
   await action(page, '/auth/login', () => page.locator('button[type=submit]').click());
-  await expect(page).toHaveURL(`${base}/${locale}/workspace/requests`);
+  await expect(page).toHaveURL(`${base}/${locale}/${destination}`);
 }
 async function emailLink(customerId: string, purpose: string, locale: string) {
   const token = await db.customerCapability.findFirstOrThrow({
@@ -388,7 +393,7 @@ try {
     const ownContext = await browser.newContext({ reducedMotion: 'reduce' });
     const ownPage = await ownContext.newPage();
     ownPage.on('pageerror', (e) => browserErrors.push(e.name));
-    await login(ownPage, 'caregiver@example.invalid', locale);
+    await login(ownPage, 'caregiver@example.invalid', locale, 'caregiver/visits');
     // All new routes + selected patient/grant state across the approved matrix.
     for (const width of [390, 1440])
       for (const dark of [false, true]) {
@@ -586,7 +591,7 @@ try {
   });
   const denseOwnContext = await browser.newContext({ reducedMotion: 'reduce' });
   const denseOwnPage = await denseOwnContext.newPage();
-  await login(denseOwnPage, 'caregiver@example.invalid', 'en');
+  await login(denseOwnPage, 'caregiver@example.invalid', 'en', 'caregiver/visits');
   for (const locale of ['ar', 'en'] as const)
     for (const width of [360, 1440])
       for (const dark of [false, true]) {
