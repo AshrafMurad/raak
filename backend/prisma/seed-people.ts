@@ -68,7 +68,13 @@ export async function seedPeople(
           tenantId: input.tenantA,
           patientId: patient.id,
           customerAccountId: customer.id,
-          scopes: ['VIEW_BASIC', 'VIEW_DOCUMENTS'],
+          // Sprint 6: patient 1 additionally carries the visit scopes so the
+          // seeded customer can list (VIEW_VISITS) and request changes
+          // (MANAGE_VISITS) for its confirmed seeded visit.
+          scopes:
+            index === 0
+              ? ['VIEW_BASIC', 'VIEW_VISITS', 'MANAGE_VISITS', 'VIEW_DOCUMENTS']
+              : ['VIEW_BASIC', 'VIEW_DOCUMENTS'],
           authorizationType: 'AGENCY_VERIFIED_AUTHORITY',
           verifiedByStaffId: input.reviewerId,
           verifiedAt: new Date('2026-11-02T00:00:00Z'),
