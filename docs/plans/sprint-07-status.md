@@ -327,6 +327,112 @@ output; no test failure is hidden by them.
 
 After owner review/push request and merge, Session 4 starts from current main and
 implements only tenant-scoped reports/reconciliation and append-only safe audit
-views. Preserve notification generation/version checks and current authorization.
-Do not consume legacy capability payloads or treat capture evidence as live email.
-ADRs/D01–D23 stay locked; external launch gates remain open.
+  views. Preserve notification generation/version checks and current authorization.
+  Do not consume legacy capability payloads or treat capture evidence as live email.
+  ADRs/D01–D23 stay locked; external launch gates remain open.
+
+## Session 4 — Reports and audit screens
+
+Date: 2026-11-04. Branch `feat/sprint7-reports-audit` from main `9c6858c`.
+Session 3 PR #11 confirmed MERGED through `gh pr list` after owner publication;
+fetched/synchronized main before branching. Local implementation only, uncommitted
+and unpushed; no merge performed.
+
+### Implemented
+
+- Tenant-scoped request current-status/service distributions, visit status counts,
+  unassigned totals, start-based timeliness and current-caregiver planned workload.
+  Explicit inclusive agency-local date windows, status/service filters, source-row
+  reconciliation and foreign-service/unknown-tenant filter denial (I02).
+- Central `reports.read` (Owner/Admin/Coordinator) and `agency.audit.read`
+  (Owner/Admin) at HTTP and live-principal transaction boundaries; no-store reads.
+  Aggregate queries/batched lookups, capped service/load rows with truncation flags.
+- Safe append-only agency audit view, chronological at/id keyset pagination with
+  timestamp-tie handling, actor/entity/time/reason projection excluding metadataJson
+  and notes. Platform tenant detail adds all-time request/visit status counts only.
+- AR RTL/EN LTR workspace reports and audit pages, URL-backed filters/cursors,
+  service-option pagination/retry, precise metric help, localized timezone-aware
+  audit dates. Failed filters clear old totals. Shared Button/Field/Input/Select/
+  Feedback/cards/table-scroll/navigation reused; no new shared primitive or theme.
+- Nine API integration scenarios, four frontend adapter tests, expanded i18n parity
+  and E08 real-browser flows in both locales with synthetic A/B fixtures.
+
+### Key files and interpretation
+
+`backend/src/contracts/reports.ts`, `modules/reporting/{reports.service,audit.service,
+reporting.controller}.ts`, permissions/server/platform detail extensions,
+`backend/test/reporting/reports.integration.test.ts`,
+`backend/test/browser/sprint7-reports.e2e.ts`, `frontend/features/reporting/`,
+workspace reports/audit routes, shared navigation and `messages/{ar,en}/reporting.json`.
+Docs 05/06/07 and ADR-0017 define measurements, caps and privacy projections.
+Plan/review: `sprint-07-reports-audit.md`, `sprint-07-reports-review.md`.
+
+### Exact verification (commands invoked separately)
+
+Working directory `backend/`:
+
+| Command | Final result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0 |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS standalone rerun: 43 files / 329 tests (9 new reporting tests) |
+| `npm run build` | PASS: API and worker bundles |
+| `npm exec -- prisma validate` | PASS: schema valid |
+| `npm exec -- prisma migrate status` | PASS: 16 migrations, database up to date |
+| `npm exec -- prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | PASS: no difference, exit 0 |
+| `npm run test:browser` | PASS E01/E02 AR/EN and shared light/dark desktop/mobile shell regressions |
+| `npm run test:browser:sprint3` | PASS E03/I10/I11 AR/EN plus workspace matrices |
+| `npm run test:browser:sprint4` | PASS E04/F05/F06 AR/EN and synthetic qualification/private-file workflows/reflow matrices |
+| `npm run test:browser:sprint5` | PASS AR/EN plans/assignment/leave/reassignment and route matrices |
+| `npm run test:browser:sprint6` | PASS E06/E07 AR/EN and completion/history/changes/settings/reflow |
+| `npm run test:browser:sprint7-inbox` | PASS staff/customer AR/EN inbox/preferences/policy/grant flows |
+| `npm run test:browser:sprint7-templates` | PASS AR/EN captured-reminder CTA and guest request-specific verification regressions |
+| `npm run test:browser:sprint7-reports` | PASS 4 report flows (AR/EN desktop-light + 360px-dark), failed-filter/reset regression and 2 owner audit pagination/safe-summary flows at 360px |
+
+Working directory `frontend/`:
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0 |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS: 19 files / 87 tests, including i18n parity and 4 reporting adapter tests |
+| `npm run build` | PASS: 66 static pages |
+| `npm run build:browser` | PASS: rebuilt after final UI changes, before final browser suites |
+
+Root: `git diff --check` PASS. Browser suites use installed Chrome. No packages,
+browser binaries, images or assets downloaded. Existing pg concurrent-query
+deprecation warnings appear in integration/browser runs. Prisma update notices
+were informational; no upgrade/install performed. No schema/migration changes.
+
+### Failures addressed during implementation/verification
+
+- Initial new request/visit aggregates missed Prisma tenantId predicates; API
+  reconciliation/I02 tests caught other synthetic tenants in counts. Explicit
+  predicates fixed the issue before delivery. Raw SQL and batched lookup variants
+  were reviewed for scope. Full suite and E08 now pass; no live data involved.
+- Suspended-session assertions initially expected 409; existing session resolver
+  returns 401 before domain access. Tests corrected without changing guards.
+- Chronological audit regression failed on UUID-only sorting; at/id cursors fixed
+  order and timestamp ties. Browser assertions now await asynchronously loaded rows.
+- E08 caught mobile wide-table overflow; shared scroll wrapper fixed it. Added
+  failing browser regression proved stale totals after invalid filters; clearing
+  data on load and current-state errors fixed it and successful reset recovery.
+- Lint/typecheck caught an unused test import, unknown-value reduce typing and a
+  Select option mapping mismatch; corrected before final required checks.
+- Initial full backend run alongside parallel lint/typecheck/frontend tests had
+  one unchanged E03 test exceed its 5000ms timeout (328 pass / 1 timeout). A
+  standalone `npm run test` passed 329/329; E03 took ~2351ms. No timeout, test
+  assertion or unrelated commercial code was changed to make it pass.
+
+### Remaining risks/gates and next-session handoff
+
+No Session 5 performance/accessibility campaign or Session 6 deployment/restore
+implementation. Full release gates remain open. Live email/provider domain,
+private S3, jurisdiction-specific review and historical applied-migration checksum
+caveat from Sessions 1–3 remain unresolved; status/drift checks are not history
+repair. No delegated installation is pending, no live-data/compliance claim.
+
+After owner review/commit/push/merge, Session 5 starts from updated main and runs
+the wider E09 accessibility/locale and measured performance sweep only. Keep
+ADR-0017's date windows, timeliness denominator, caps and audit keyset/projections.
+Review evidence is inline/self-review, not independent external assurance.

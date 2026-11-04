@@ -47,6 +47,22 @@
 7. File download authorizes resource AND parent patient/request AND grant scope; short-lived signed link only.
 8. Frontend hide/show controls are advisory, not security boundaries.
 
+### Implemented Sprint 7 Session 4 reporting and audit policy
+
+- `reports.read`: ACTIVE-tenant Owner/Admin/Coordinator, through central authorize
+  at HTTP and live account/session/tenant transaction boundaries. Caregiver and
+  customer access to their existing restricted visit views does not grant agency
+  reporting. Platform operators and verified guests have no agency report access.
+- `agency.audit.read`: ACTIVE-tenant Owner/Admin only. Tenant-local append-only
+  views project actor type/id, action, subject type/id, reason and UTC timestamp;
+  metadata JSON and operational/clinical note bodies are excluded.
+- Agency queries always use the host-resolved tenant. Unknown `tenantId` query
+  parameters return 422; a service filter naming a different tenant's or missing
+  service returns generic 404. No patient rows or identities enter report responses.
+- Platform tenant detail adds all-time request/visit status counts only. It grants
+  no agency-host report authority or access to underlying patients/visits/requests.
+  See ADR-0017 and docs 07 for exact filters and projections.
+
 ## Customer to patient access grants
 `PatientAccess` fields: `tenantId`, `customerAccountId`, `patientId`, `scope[]`, `authorizationType`, `evidenceDocumentId?`, `verifiedByStaffId?`, `verifiedAt`, `expiresAt?`, `revokedAt?`, `status`.
 Available scopes: `VIEW_BASIC`, `SUBMIT_REQUEST`, `VIEW_VISITS`, `MANAGE_VISITS`, `VIEW_CARE_PLAN_SUMMARY`, `VIEW_DOCUMENTS` (higher sensitivity separately granted).
