@@ -13,6 +13,7 @@ import { loadApiEnv } from '../../src/config/env';
 import { createLogger } from '../../src/logger';
 import { createSession } from '../../src/modules/auth/session.service';
 import { classifyUrgency } from '../../src/modules/scheduling/change-request.service';
+import { replaceVisitReminders } from '../../src/modules/notifications/reminders';
 
 const db = getPrisma();
 const slug = `changes-${randomUUID().slice(0, 8)}`;
@@ -301,6 +302,7 @@ afterAll(async () => {
     await db.visitNote.deleteMany({ where: { tenantId: tenant } });
     await db.visitTask.deleteMany({ where: { tenantId: tenant } });
     await db.visitAssignmentHistory.deleteMany({ where: { tenantId: tenant } });
+    await db.visitReminder.deleteMany({ where: { tenantId: tenant } });
     await db.visit.deleteMany({ where: { tenantId: tenant } });
     await db.carePlanVersion.deleteMany({ where: { tenantId: tenant } });
     await db.carePlan.deleteMany({ where: { tenantId: tenant } });
@@ -655,6 +657,10 @@ describe('late classification and policy gate (I14)', () => {
 describe('coordinator decisions', () => {
   it('approves a cancellation transactionally with idempotent replay', async () => {
     const visit = await createVisit('2026-11-24T06:00:00Z', '2026-11-24T07:00:00Z');
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM tenants WHERE id = ${tenantId}::uuid FOR UPDATE`;
+      await replaceVisitReminders(tx, tenantId, visit.id, currentNow);
+    });
     const created = await call('post', `/portal/my/visits/${visit.id}/change-requests`, customer, {
       type: 'CANCEL',
       reason: 'Synthetic approved cancellation reason.',
@@ -675,6 +681,9 @@ describe('coordinator decisions', () => {
     });
     const visitRow = await db.visit.findUniqueOrThrow({ where: { id: visit.id } });
     expect(visitRow.status).toBe('CANCELLED');
+    expect(visitRow.reminderRevision).toBe(2);
+    const reminderIds = (await db.visitReminder.findMany({ where: { tenantId, visitId: visit.id }, select: { id: true } })).map((r) => r.id);
+    expect(await db.outboxEvent.count({ where: { tenantId, id: { in: reminderIds }, processedAt: null } })).toBe(0);
     expect(visitRow.cancelledReason).toBe('Synthetic approved cancellation reason.');
     const replay = await call(
       'post',
@@ -685,6 +694,7 @@ describe('coordinator decisions', () => {
     );
     expect(replay.status).toBe(200);
     expect(replay.body.data).toEqual(approved.body.data);
+    expect((await db.visit.findUniqueOrThrow({ where: { id: visit.id } })).reminderRevision).toBe(2);
     const conflictingKey = await call(
       'post',
       `/agency/visit-change-requests/${created.body.data.id}/approve`,
@@ -701,6 +711,10 @@ describe('coordinator decisions', () => {
 
   it('keeps the request pending and the original unchanged on a conflicting reschedule (I13)', async () => {
     const visit = await createVisit('2026-11-25T06:00:00Z', '2026-11-25T07:00:00Z');
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM tenants WHERE id = ${tenantId}::uuid FOR UPDATE`;
+      await replaceVisitReminders(tx, tenantId, visit.id, currentNow);
+    });
     // An existing assignment occupies the proposed window exactly.
     const conflict = await createVisit('2026-11-26T07:00:00Z', '2026-11-26T08:00:00Z');
     const created = await call('post', `/portal/my/visits/${visit.id}/change-requests`, customer, {
@@ -727,6 +741,7 @@ describe('coordinator decisions', () => {
     const after = await db.visit.findUniqueOrThrow({ where: { id: visit.id } });
     expect(after.scheduledStartUtc).toEqual(before.scheduledStartUtc);
     expect(after.version).toBe(before.version);
+    expect(after.reminderRevision).toBe(before.reminderRevision);
     expect(after.status).toBe('SCHEDULED');
     // Removing the conflict lets the same request approve cleanly.
     await db.visit.delete({ where: { tenantId, id: conflict.id } });
@@ -742,6 +757,10 @@ describe('coordinator decisions', () => {
     expect(moved.scheduledStartUtc.toISOString()).toBe('2026-11-26T07:00:00.000Z');
     expect(moved.scheduledEndUtc.toISOString()).toBe('2026-11-26T08:00:00.000Z');
     expect(moved.assignedCaregiverId).toBe(caregiverId);
+    expect(moved.reminderRevision).toBe(2);
+    const newReminders = await db.visitReminder.findMany({ where: { tenantId, visitId: visit.id, revision: 2 } });
+    expect(newReminders).toHaveLength(4);
+    expect(newReminders.every((r) => r.scheduledStartUtc.toISOString() === '2026-11-26T07:00:00.000Z')).toBe(true);
   });
 
   it('preserves sibling occurrences and plan history on a single-occurrence reschedule', async () => {

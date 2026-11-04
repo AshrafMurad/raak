@@ -1,0 +1,20 @@
+{
+  "cta": "سجّل الدخول أو تحقّق من صلاحية الوصول بأمان لعرض التحديث.",
+  "REQUEST_RECEIVED": "تم استلام طلبك. لم يتم تأكيد أي موعد.",
+  "REQUEST_NEW": "يوجد طلب جديد للمراجعة.",
+  "REQUEST_NEEDS_INFO": "يحتاج طلبك إلى معلومات إضافية.",
+  "QUOTE_SENT": "يوجد عرض جاهز لمراجعتك.",
+  "QUOTE_RESPONSE": "يوجد رد على العرض.",
+  "QUOTE_REVISION_REQUESTED": "يوجد طلب تعديل عرض للمراجعة.",
+  "QUOTE_REVISION_SENT": "يوجد عرض محدّث جاهز لمراجعتك.",
+  "VISIT_CONFIRMED": "تم تأكيد موعدك.",
+  "VISIT_CHANGED": "تم تحديث موعدك.",
+  "VISIT_CANCELLED": "تم إلغاء موعدك.",
+  "VISIT_ASSIGNED": "تم إسناد موعد إليك.",
+  "VISIT_REMINDER": "تذكير بالموعد",
+  "VISIT_LATE_FLAGGED": "يوجد موعد يحتاج إلى المتابعة.",
+  "VISIT_NEEDS_REVIEW": "يوجد موعد يحتاج إلى المراجعة.",
+  "CAREGIVER_EXCEPTION": "تم تحديث توفر الفريق.",
+  "STAFF_INVITATION": "تمت دعوتك للانضمام إلى مساحة عمل.",
+  "SECURITY_VERIFICATION": "تحقّق من الوصول الآمن إلى حسابك أو طلبك."
+}

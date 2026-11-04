@@ -296,3 +296,27 @@ Additive migration `20261104120000_sprint7_notifications` adds:
 
 Existing EmailDelivery and RequestNotification tables remain unchanged. See
 ADR-0014 for pending renderer handling and event ownership.
+
+## Sprint 7 Session 3 persistence
+
+Additive migrations `20261104130000_sprint7_templates_reminders` and
+`20261104131000_sprint7_reminder_index_name` add:
+
+- Staff/customer `notificationLocale`, ar/en CHECK, default ar; customer registration
+  initializes its existing selected locale. Self preferences may update it.
+- Visit `reminderRevision`, separate from optimistic business version. Assignment
+  and approved change transactions advance it; task/review/health changes do not.
+- `VisitReminder`: same-tenant visit FK, immutable generation revision/channel/
+  bounded offset/dueAt/scheduled-start snapshot, unique generation/channel/offset.
+  Its ID is also the reminder outbox ID; outbox creation time is the not-before
+  deadline, allowing existing bounded polling to select due work only.
+- NotificationDelivery principal type is constrained text, additionally allowing
+  VERIFIED_GUEST with request ID as recipient key. This is email bookkeeping only;
+  AuthSession, Notification and PatientAccess principal models are unchanged.
+  Every delivery re-resolves the current request/account/verified proof, not a
+  persisted email address or capability. Inbox remains account-only.
+
+Superseded pending outbox events are acknowledged and pending/sending email claims
+are token-fenced SKIPPED; generic delivered history is preserved. Explicit index
+naming avoids PostgreSQL identifier truncation. No applied historical migration,
+note, task, care-plan version or commercial agreement is rewritten.

@@ -12,15 +12,15 @@ export async function dispatchNotificationEvent(db: DatabaseClient, eventId: str
     if (tenants[0]?.status !== 'ACTIVE') return;
     await tx.$queryRaw`SELECT id FROM outbox_events WHERE tenant_id = ${tenantId}::uuid AND id = ${eventId}::uuid FOR UPDATE`;
     const event = await tx.outboxEvent.findFirst({ where: { tenantId, id: eventId, processedAt: null } });
-    if (!event) return;
+    if (!event || event.createdAt > now()) return;
     const audience = await resolveAudience(tx, { tenantId, aggregateId: event.aggregateId, eventType: event.eventType }, now());
     if (!audience) return; // missing/unsupported aggregates remain durable for inspection
     for (const recipient of audience.recipients) {
       const input = { tenantId, principalType: recipient.principalType, principalId: recipient.principalId, eventType: audience.eventType };
-      if (await channelEnabled(tx, { ...input, channel: 'IN_APP' }))
+      if (recipient.principalType !== 'VERIFIED_GUEST' && audience.channel !== 'EMAIL' && await channelEnabled(tx, { ...input, channel: 'IN_APP' }))
         await tx.notification.createMany({ skipDuplicates: true, data: [{ tenantId, eventId, principalType: recipient.principalType,
           recipientPrincipalId: recipient.principalId, eventType: audience.eventType, entityType: audience.entityType, entityId: audience.entityId }] });
-      if (await channelEnabled(tx, { ...input, channel: 'EMAIL' }))
+      if (audience.channel !== 'IN_APP' && await channelEnabled(tx, { ...input, channel: 'EMAIL' }))
         await tx.notificationDelivery.createMany({ skipDuplicates: true, data: [{ tenantId, eventId,
           principalType: recipient.principalType, recipientPrincipalId: recipient.principalId, eventType: audience.eventType,
           retryAt: now(), lastErrorCode: 'TEMPLATE_NOT_CONFIGURED' }] });

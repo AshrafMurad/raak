@@ -19,6 +19,7 @@ import type { AuthState } from '../auth/guards';
 import { agencyAction, missing } from '../common/agency-action';
 import { customerAction } from '../common/customer-action';
 import { recordChange } from '../common/record-change';
+import { replaceVisitReminders } from '../notifications/reminders';
 import { localToUtc } from '../common/local-time';
 import { hasPatientGrant } from '../patients/patient.repository';
 import { lockCarePlanForVisit } from '../care-plans/care-plan-assignment-policy';
@@ -503,6 +504,7 @@ export function createChangeRequestService(db: DatabaseClient, now: () => Date) 
             visit: updated,
           } as Prisma.InputJsonValue;
         }
+        await replaceVisitReminders(tx, tenantId, visit.id, now());
         await tx.visitChangeRequest.update({
           where: { tenantId_id: { tenantId, id: request.id } },
           data: {

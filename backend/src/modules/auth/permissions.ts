@@ -41,11 +41,12 @@ export const PERMISSION_ACTIONS = [
   'notifications.policy.manage',
   'notifications.deliveries.read',
   'notifications.receive',
+  'notifications.receive_email',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
 export type AuthzPrincipal = {
-  principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER';
+  principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER' | 'VERIFIED_GUEST';
   /** Staff role (docs 05 roles); undefined for operator/customer principals. */
   role?: string;
   /** Status of the tenant resolved from the trusted host. */
@@ -70,6 +71,8 @@ export function authorize(
   action: PermissionAction,
 ): AuthzDecision {
   if (!principal) return { allowed: false };
+  if (principal.principalType === 'VERIFIED_GUEST')
+    return { allowed: principal.tenantStatus === 'ACTIVE' && action === 'notifications.receive_email' };
 
   if (principal.principalType === 'PLATFORM_OPERATOR') {
     return { allowed: PLATFORM_ACTIONS.has(action) };

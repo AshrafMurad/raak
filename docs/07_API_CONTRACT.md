@@ -777,7 +777,7 @@ CSRF; responses are no-store. Strict DTOs: `contracts/notifications.ts`.
   (1–34 unique cells). Only configurable cells accepted; immutable, duplicate,
   unknown fields/codes/channels return 422 VALIDATION_FAILED. Stale version is
   409 VERSION_CONFLICT. Offset is null or integer 1–10080, only on VISIT_REMINDER;
-  this stores policy, not a scheduled reminder. Returns `{version}`; writes policy,
+  Session 3 applies this to new reminder generations (see below). Returns `{version}`; writes policy,
   independent version, audit and IDs-only `notifications.policy_updated` event together.
 - `GET /agency/notification-deliveries?status=&cursor=&limit=`: Owner/Admin only;
   status PENDING/SENDING/SENT/FAILED/SKIPPED, UUID cursor, limit 1–100 (default 20).
@@ -819,6 +819,46 @@ targets re-evaluate live central read authority. Destination APIs independently
 reauthorize. See ADR-0015. Protected/duplicate/unknown preference cells or input
 fields return 422; personal opt-in cannot override a disabled tenant channel.
 Read commands do not emit business notifications or change domain history.
+
+### Sprint 7 Session 3 — templates and durable reminders
+
+- Self `GET /notifications/preferences` additionally returns `locale:ar|en`.
+  PATCH accepts optional `locale:ar|en` alongside the existing required preference
+  batch, scoped to the current verified account, with existing CSRF/live-session
+  and central authorization checks. Omission preserves language. New customers
+  inherit their registration locale; existing accounts/staff default Arabic.
+  This additive transport does not add a language-selection screen.
+- Existing policy `VISIT_REMINDER.reminderOffsetMin=null` means two defaults:
+  1440 and 120 minutes, independently per channel. A non-null offset replaces
+  those defaults for that channel. Disabled cells generate no new reminders.
+  Assignment/reassignment and approved reschedule/cancel replace pending reminder
+  generations atomically. Only strictly future deadlines are created; no catch-up
+  reminder for an offset already reached when booked. Policy timing changes affect
+  new generations; current disable/personal opt-out is rechecked before delivery.
+- New `visit.confirmed`, `visit.notification_changed` and `visit.reminder` outbox
+  kinds contain IDs only. Reminder aggregate IDs identify immutable generation
+  snapshots. Their outbox `createdAt` is the not-before deadline; worker and direct
+  dispatcher both enforce it. Visit reminder revision, scheduled window, SCHEDULED
+  state and future start must still match at dispatch and send. No PLANNED visit
+  is confirmed or reminded by generation alone.
+- Explicit requester mappings now include `request.info_needed`, `quote.sent` and
+  `quote.revision_sent`. Superseded/expired offers and resolved information requests
+  suppress obsolete delivery. Linked verified active customers receive account
+  notices. Unclaimed request-only guests need a consumed email proof whose hash
+  matches the current requester address; they get EMAIL only, never PatientAccess
+  or an inbox. Guest CTA `/track?request=<id>` requires request-specific current
+  verification on entry; an existing guest session for another request cannot
+  silently select that other request.
+- Renderer uses safe code-only localized copy, public agency branding and an
+  allowlisted tenant-origin authenticated destination. No patient identity,
+  service/clinical detail, address, appointment timestamp or negotiation text is
+  interpolated. Provider retries retain the stable delivery-ID dedupe key.
+- Admin `blockedEvents` also includes unresolved requester/confirmation/reassignment
+  kinds above. Existing safe delivery status/attempt/error projections are unchanged.
+  Missing provider leaves work pending; identity/security capability-mail ownership
+  is unchanged, even though the template catalog covers all docs 11 codes.
+
+See ADR-0016. No new public scheduling or patient-authority endpoint is introduced.
 
 ## Transaction example — assign (request/response)
 **Request:** `POST /v1/agency/visits/:id/assign`

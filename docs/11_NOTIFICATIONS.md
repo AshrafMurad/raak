@@ -127,6 +127,37 @@ No email renderer or reminder generation is registered by this session.
 
 ## Tests
 
+### Implemented Session 3
+
+`modules/notifications/messages/{ar,en}.json` supplies every matrix code's safe
+plain-text subject/copy. Production business rendering is registered through the
+existing worker/provider gate. Links use validated configured tenant origins,
+locale-prefixed allowlisted paths, and Unicode isolation for mixed RTL/LTR text.
+Public agency labels are stripped of control/bidi overrides; no business free
+text, patient identity, appointment time or service detail is interpolated.
+Account notification locale defaults ar and is self-configurable via preference
+transport; new customers inherit their registration language. Request-only guests
+retain their request language, with current verified-email proof required.
+
+Requester information/offer mappings and confirmed/reassigned visit events now
+join existing coordinator/change events. Guests receive only generic email and
+must verify on /track; no inbox or patient access is inferred. Initial receipt /
+request-access verification retains the dedicated pipeline, avoiding a duplicate
+receipt. Legacy identity/security outbox capabilities retain their existing
+ownership and remain unprocessed by the general dispatcher; the catalog alone
+does not claim invitation/owner/reset delivery integration. No late-visit
+detector is introduced; its matrix template is available without inventing events.
+
+Assignment/reassignment and approved changes atomically replace reminder
+generations. Default optional 24h/2h offsets apply independently to IN_APP/EMAIL;
+a non-null policy offset replaces that channel's defaults. Only deadlines strictly
+after booking are created. Cancellation invalidates pending work; reschedule
+recomputes it. Revision, current scheduled window/status, future start, current
+assignment, verified accounts, VIEW_VISITS grants, tenant state and optional
+policy/preferences are checked again at dispatch/send. Existing delivered generic
+history remains; pending obsolete emails are SKIPPED. Provider dedupe/retry/lease
+and safe admin attempts remain unchanged. Live email evidence remains an owner gate.
+
 ### Implemented Sprint 6 durable events
 
 `VisitEvents` records started, task_updated, draft_saved, completed, needs_review,

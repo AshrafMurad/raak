@@ -75,6 +75,9 @@ export const DeliveryQuerySchema = z
   })
   .strict();
 export const NotificationEvents = {
+  VISIT_CONFIRMED: 'visit.confirmed',
+  VISIT_CHANGED: 'visit.notification_changed',
+  VISIT_REMINDER: 'visit.reminder',
   POLICY_UPDATED: 'notifications.policy_updated',
   PREFERENCES_UPDATED: 'notifications.preferences_updated',
 } as const;
@@ -97,6 +100,7 @@ export const InboxQuerySchema = z
 export const NotificationReadSchema = z.object({}).strict();
 export const NotificationPreferencePatchSchema = z
   .object({
+    locale: z.enum(['ar', 'en']).optional(),
     preferences: z
       .array(
         z

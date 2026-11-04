@@ -41,7 +41,7 @@ export function createNotificationService(db: DatabaseClient) {
         select: { id: true, eventType: true, channel: true, status: true, attempts: true, retryAt: true, lastErrorCode: true, createdAt: true } });
       const more = items.length > input.limit; if (more) items.pop();
       const unresolved = await tx.outboxEvent.findMany({ where: { tenantId, processedAt: null,
-        eventType: 'visit.change_approved', ...(input.cursor ? { id: { lt: input.cursor } } : {}) },
+        eventType: { in: ['visit.change_approved', 'visit.confirmed', 'visit.notification_changed', 'request.info_needed', 'quote.sent', 'quote.revision_sent'] }, ...(input.cursor ? { id: { lt: input.cursor } } : {}) },
         orderBy: { id: 'desc' }, take: input.limit + 1, select: { id: true, eventType: true, createdAt: true } });
       const blockedMore = unresolved.length > input.limit; if (blockedMore) unresolved.pop();
       return { items, nextCursor: more ? items.at(-1)?.id ?? null : null,

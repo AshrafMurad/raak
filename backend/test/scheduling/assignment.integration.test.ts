@@ -226,6 +226,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.visitAssignmentHistory.deleteMany({ where: { tenantId } });
   await db.visitTask.deleteMany({ where: { tenantId } });
+  await db.visitReminder.deleteMany({ where: { tenantId } });
   await db.visit.deleteMany({ where: { tenantId } });
   await db.carePlanVersion.deleteMany({ where: { tenantId } });
   await db.carePlan.deleteMany({ where: { tenantId } });
@@ -465,6 +466,8 @@ it('assignment idempotency and stale visit versions are enforced', async () => {
   expect(first.status).toBe(200);
   expect(replay.status).toBe(200);
   expect(replay.body.data).toEqual(first.body.data);
+  expect(await db.visitReminder.count({ where: { tenantId, visitId: visit.id } })).toBe(4);
+  expect((await db.visit.findUniqueOrThrow({ where: { id: visit.id } })).reminderRevision).toBe(1);
   expect(await db.visitAssignmentHistory.count({ where: { tenantId, visitId: visit.id } })).toBe(1);
   const other = await createVisit('2026-12-18T06:00:00Z', '2026-12-18T07:00:00Z');
   await db.visit.update({ where: { id: other.id }, data: { version: 2 } });

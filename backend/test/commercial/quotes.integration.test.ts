@@ -8,6 +8,9 @@ import { createLogger } from '../../src/logger';
 import { createSession } from '../../src/modules/auth/session.service';
 import { hashPassword } from '../../src/modules/auth/crypto';
 import { openSecret } from '../../src/modules/requesting/secrets';
+import { dispatchNotificationEvent } from '../../src/modules/notifications/dispatcher';
+import { deliverNotificationEmail } from '../../src/modules/notifications/delivery';
+import { renderNotification } from '../../src/modules/notifications/templates';
 
 const db = getPrisma();
 const slug = `com-${randomUUID().slice(0, 8)}`;
@@ -133,6 +136,8 @@ async function guestCookieFor(tenant: string, requestRowId: string, reqHost: str
 }
 
 async function cleanupTenant(tenant: string) {
+  await db.notificationDelivery.deleteMany({ where: { tenantId: tenant } });
+  await db.notification.deleteMany({ where: { tenantId: tenant } });
   await db.idempotencyKey.deleteMany({ where: { tenantId: tenant } });
   await db.requestNotification.deleteMany({ where: { tenantId: tenant } });
   await db.quoteRevisionRequest.deleteMany({ where: { tenantId: tenant } });
@@ -250,6 +255,21 @@ const lineItems = [
   { description: 'Assessment visit', quantity: 1, unitPriceMinor: 10000 },
 ];
 
+async function captureQuoteNotice(quoteId: string, kind: string, code: string) {
+  const event = await db.outboxEvent.findFirstOrThrow({ where: { tenantId, aggregateId: quoteId, eventType: kind } });
+  await dispatchNotificationEvent(db, event.id, () => new Date());
+  const delivery = await db.notificationDelivery.findFirstOrThrow({ where: { tenantId, eventId: event.id } });
+  expect(delivery.eventType).toBe(code);
+  let sent = 0;
+  await deliverNotificationEmail({ db, tenantId, deliveryId: delivery.id, now: () => new Date(),
+    render: (type, context) => {
+      expect(context?.path).toBe(`/track?request=${requestId}`);
+      expect(context?.locale).toBe('en');
+      return renderNotification(type, { ...context!, url: `https://${slug}.example.invalid/en/track?request=${requestId}` });
+    }, send: async (mail) => { sent++; expect(mail.text).not.toMatch(/Scope:|assessment|home visits|beneficiary/i); } });
+  expect(sent).toBe(1);
+}
+
 it('runs the E03 revision journey: send v1, revise, replace with v2, accept, approve', async () => {
   // Coordinator starts review, drafts and sends quote v1.
   const detail = await staffGet(coordinatorCookie, `/agency/requests/${requestId}`);
@@ -301,6 +321,7 @@ it('runs the E03 revision journey: send v1, revise, replace with v2, accept, app
   expect(sent.status).toBe(200);
   expect(sent.body.data.status).toBe('SENT');
   expect(sent.body.data.version).toBe(1);
+  await captureQuoteNotice(draftId, 'quote.sent', 'QUOTE_SENT');
   const portalList = await guestGet(guestCookie, `/portal/my/requests/${requestId}/quotes`);
   expect(portalList.status).toBe(200);
   expect(portalList.body.data.items).toHaveLength(1);
@@ -364,6 +385,7 @@ it('runs the E03 revision journey: send v1, revise, replace with v2, accept, app
   expect(staleAccept.status).toBe(409);
   expect(staleAccept.body.error.code).toBe('QUOTE_SUPERSEDED');
   const quoteV2 = replacement.body.data.id as string;
+  await captureQuoteNotice(quoteV2, 'quote.revision_sent', 'QUOTE_REVISION_SENT');
 
   // Approving before the customer accepts must fail the prerequisite check.
   const midDetail = await staffGet(coordinatorCookie, `/agency/requests/${requestId}`);

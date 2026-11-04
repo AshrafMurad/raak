@@ -105,7 +105,11 @@ export function createInboxService(db: DatabaseClient) {
         const policies = await tx.notificationPolicy.findMany({
           where: { tenantId: scope.tenantId },
         });
+        const account = scope.principalType === 'AGENCY_CUSTOMER'
+          ? await tx.customerAccount.findFirstOrThrow({ where: { tenantId: scope.tenantId, id: scope.recipientPrincipalId }, select: { notificationLocale: true } })
+          : await tx.staffAccount.findFirstOrThrow({ where: { tenantId: scope.tenantId, id: scope.recipientPrincipalId }, select: { notificationLocale: true } });
         return {
+          locale: account.notificationLocale,
           preferences: NOTIFICATION_EVENTS.flatMap((eventType) =>
             NOTIFICATION_CHANNELS.flatMap((channel) => {
               if (!channelPolicy(eventType, channel).configurable) return [];
@@ -136,6 +140,11 @@ export function createInboxService(db: DatabaseClient) {
           principalType: scope.principalType,
           principalId: scope.recipientPrincipalId,
         };
+        if (input.locale) {
+          const where = { tenantId: scope.tenantId, id: scope.recipientPrincipalId };
+          if (scope.principalType === 'AGENCY_CUSTOMER') await tx.customerAccount.updateMany({ where, data: { notificationLocale: input.locale } });
+          else await tx.staffAccount.updateMany({ where, data: { notificationLocale: input.locale } });
+        }
         for (const cell of input.preferences)
           await tx.notificationPreference.upsert({
             where: {

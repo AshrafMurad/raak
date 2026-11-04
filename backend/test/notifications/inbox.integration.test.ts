@@ -156,6 +156,10 @@ it('marks read monotonically under concurrent replay, denies other recipients an
 });
 
 it('stores only self optional preferences, rejects protected cells and strict input overrides', async () => {
+  const localeUpdate = await call('patch', '/notifications/preferences', { locale: 'en', preferences: [{ eventType: 'VISIT_REMINDER', channel: 'EMAIL', optedOut: false }] });
+  expect(localeUpdate.status).toBe(200);
+  expect((await call('get', '/notifications/preferences')).body.data.locale).toBe('en');
+  expect((await call('get', '/notifications/preferences', undefined, otherCookie)).body.data.locale).toBe('ar');
   const body = {
     preferences: [{ eventType: 'VISIT_REMINDER', channel: 'IN_APP', optedOut: true }],
   };
