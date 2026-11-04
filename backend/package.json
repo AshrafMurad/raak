@@ -24,6 +24,8 @@
     "test:browser:sprint7-inbox": "tsx test/browser/sprint7-inbox.e2e.ts",
     "test:browser:sprint7-templates": "tsx test/browser/sprint7-templates.e2e.ts",
     "test:browser:sprint7-reports": "tsx test/browser/sprint7-reports.e2e.ts",
+    "test:browser:sprint7-a11y": "tsx test/browser/sprint7-a11y.e2e.ts",
+    "perf:budgets": "tsx scripts/measure-performance.ts",
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate": "prisma migrate deploy",

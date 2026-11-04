@@ -68,15 +68,19 @@ export function ExecutionPanel({
   locale,
   onClose,
   onChanged,
+  returnFocus,
 }: {
   visitId: string;
   locale: Locale;
   onClose(): void;
   onChanged(): Promise<void>;
+  /** Live opener lookup: the list re-renders/reorders after status changes, so
+   * a node captured at open time can be detached by close time. */
+  returnFocus?: () => HTMLElement | null;
 }) {
   const c = caregiverVisitCopy(locale);
   const [visit, setVisit] = useState<CaregiverVisitDetail | null>(null);
-  const [opener] = useState(() =>
+  const [fallbackOpener] = useState(() =>
     typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null,
@@ -137,7 +141,7 @@ export function ExecutionPanel({
         dir={locale === 'ar' ? 'rtl' : 'ltr'}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          opener?.focus();
+          (returnFocus?.() ?? fallbackOpener)?.focus();
         }}
       >
         <header className="rv-dialog-header">

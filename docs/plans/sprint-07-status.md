@@ -436,3 +436,149 @@ After owner review/commit/push/merge, Session 5 starts from updated main and run
 the wider E09 accessibility/locale and measured performance sweep only. Keep
 ADR-0017's date windows, timeliness denominator, caps and audit keyset/projections.
 Review evidence is inline/self-review, not independent external assurance.
+
+## Session 5 — Accessibility, locale and performance QA
+
+Date: 2026-11-04. Branch `feat/sprint7-a11y-perf` from main `1805f20`; Session 4
+PR #12 confirmed MERGED through `gh pr list` and main fetched/fast-forwarded
+before branching/coding. Local commits only; push/merge await owner request.
+
+### Implemented
+
+- New E09 sweep `backend/test/browser/sprint7-a11y.e2e.ts` +
+  `npm run test:browser:sprint7-a11y`: 20 key routes across guest/staff/
+  customer/caregiver with synthetic injected sessions, AR RTL and EN LTR,
+  360px dark and desktop light. Asserts html lang/dir, no horizontal overflow,
+  zero page errors, visible keyboard focus indicators, first-Tab skip link on
+  framed shells, dialog Tab containment/Escape focus return, and Arabic
+  `bdi`/`dir="ltr"` isolation for ids, emails, amounts and timestamps.
+- Keyboard-complete flows without mouse: guest intake through receipt
+  (including announced empty-submit errors with first-invalid focus and a
+  failed-submit-never-succeeds check), staff request-queue dialog, caregiver
+  open → Start visit (server-confirmed 200) → close with focus return at
+  360px. Verified quotes show version, unit prices, total, expiry and the
+  "not an electronic payment" statement on the verified track view in both
+  locales; guest "preferred time is not a confirmed appointment" copy asserted
+  on intake and receipt.
+- Defect found and fixed with the sweep as the failing-first regression:
+  closing the caregiver execution dialog returned keyboard focus to <body>
+  once the list re-grouped after Start (captured opener detached). The screen
+  now tracks the live row button per visit and passes it to the dialog
+  (`frontend/features/caregiver-visits/screen.tsx`,
+  `visit-execution-panel.tsx`). Red before the fix, green after, both locales;
+  no authorization, privacy or state-machine behavior changed.
+- Performance budgets measured by standalone `backend/scripts/measure-performance.ts`
+  (`npm run perf:budgets`, excluded from vitest, self-cleaning synthetic
+  10x1000-visit dataset): paginated list p95 31 ms / median 26 ms / max 33 ms
+  (300 samples, all 200) against the 500 ms budget — MET; candidate suggestion
+  median 636 ms / p95 649 ms with 100 caregivers over the two-week horizon
+  (30 samples, all 200) against the 1 s median budget — MET, with the honest
+  note that this path has the least headroom and must be re-measured if
+  caregiver counts grow.
+- Email independence (budget 3) and worker idempotency/retry bounds (budget 4)
+  asserted in `backend/test/performance/email-independence.integration.test.ts`:
+  guest intake and replayed quote acceptance complete under a 2 s bound while a
+  delivery is stuck SENDING on a never-responding provider; concurrent
+  re-dispatch creates the delivery set exactly once; failing-provider retries
+  cap at exactly 5 attempts then FAILED, with a sixth attempt a no-op.
+- List caps/no-N+1 recorded via code references (visit list take 21, candidate
+  caregiver take 200, reports/inbox/audit capped keysets) — measurements,
+  environment notes and partial-verification limits are in
+  `docs/plans/sprint-07-a11y-perf-measurements.md`; methodology interpretations
+  in ADR-0018. No schema, API-contract or shared-UI changes.
+
+### Key files
+
+`backend/test/browser/sprint7-a11y.e2e.ts`, `backend/scripts/measure-performance.ts`,
+`backend/test/performance/email-independence.integration.test.ts`,
+`backend/package.json` (two scripts), `frontend/features/caregiver-visits/
+{screen.tsx,visit-execution-panel.tsx}`, `docs/plans/
+sprint-07-accessibility-performance.md`, `docs/plans/
+sprint-07-a11y-perf-measurements.md`, `docs/adr/ADR-0018-sprint7-a11y-performance-method.md`.
+
+### Exact verification (commands run separately)
+
+Working directory `backend/`:
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0, no warnings |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS: 44 files / 331 tests (2 new performance-evidence tests) |
+| `npm run build` | PASS: API and worker bundles |
+| `npm exec -- prisma validate` | PASS: schema valid |
+| `npm exec -- prisma migrate status` | PASS: 16 migrations, database up to date |
+| `npm exec -- prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | PASS: no difference, exit 0 |
+| `npm run perf:budgets` | PASS, exit 0, both budgets met (numbers above) |
+| `npm run test:browser` | PASS sprint 2 E01/E02 AR/EN |
+| `npm run test:browser:sprint3` | PASS E03/I10/I11 AR/EN |
+| `npm run test:browser:sprint4` | PASS E04/F05/F06 AR/EN |
+| `npm run test:browser:sprint5` | PASS AR/EN plans/assignment/leave/reassignment |
+| `npm run test:browser:sprint6` | PASS E06/E07 AR/EN including caregiver execution/review |
+| `npm run test:browser:sprint7-inbox` | PASS staff/customer inbox/preferences/policy flows |
+| `npm run test:browser:sprint7-templates` | PASS AR/EN reminder CTA and guest verification regressions |
+| `npm run test:browser:sprint7-reports` | PASS E08 AR/EN and audit pagination |
+| `npm run test:browser:sprint7-a11y` | PASS all 22 sweep groups (8 route matrices + intake/dialog/caregiver deep checks per locale) |
+
+Working directory `frontend/`:
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0 |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS: 19 files / 87 tests, including i18n parity |
+| `npm run build` | PASS: static pages generated (run after browser suites; `npm run build:browser` was re-run before sweeping after the production fix) |
+
+Root: `git diff --check` PASS. Browser suites use installed Chrome. No
+dependencies, images or browser binaries downloaded. The known pg
+concurrent-query deprecation warning appears in integration/browser output;
+it is not a test failure.
+
+### Failures addressed during the session
+
+- Sweep iterations fixed harness bugs first: a non-existent `/workspace` index
+  route (Next default 404 has no lang attribute), non-waiting readiness checks,
+  strict-mode multi-match on identical Arabic error copy, and a shared fixture
+  visit that AR's start had already progressed for EN. A stale regular
+  `.next` build from Session 4's final `npm run build` initially produced
+  "service unavailable" portal states; `npm run build:browser` was re-run
+  before the first complete sweep.
+- The one product defect found (focus return) is described above with its
+  red/green evidence.
+- Performance script iterations: Node fetch ignores a manual Host header
+  (diagnostic probe replaced by direct http.request with an explicit Host);
+  the synthetic service config needed full `ServiceConfigSchema` fields; the
+  mail-independence test needed owner-role publish rights, the
+  post-publish service version, explicit `priceAcknowledged`, and a stepped
+  injectable clock to cross exponential retry gates.
+- Quote-view assertions initially targeted a SUBMITTED request, where quotes
+  are intentionally hidden; the fixture now moves the request to UNDER_REVIEW
+  with a status-history row. No production code changed for this.
+
+### Not implemented / remaining risks and gates
+
+- Real Arabic/English screen-reader listening, real-device/AT certification
+  and country-specific accessibility acceptance are external/manual items;
+  only structural ARIA and keyboard evidence is recorded (ADR-0018).
+- Caregiver complete-with-reason flow at 360px remains covered by the sprint 6
+  suite (390px, mouse-driven with reflow assertions); the sweep adds the
+  keyboard start at 360px. A dedicated keyboard end-to-end completion could be
+  added later if the owner wants it.
+- Budgets are development-environment measurements only (ADR-0018); no
+  production capacity, load or SLA claim. Session 6 deployment must restate
+  its own environment.
+- Live email provider/domain, private S3, jurisdiction-specific launch review
+  and the historical applied-migration checksum caveat from earlier sessions
+  remain open owner gates; status/drift checks are not history repair. No
+  delegated install/download is pending; no MVP-complete claim is made.
+- Review was inline/self-review; no independent external assurance.
+
+### Next-session handoff
+
+After owner review/push/merge, Session 6 starts from current main and
+implements only deployment configuration, backup/restore rehearsal, and the
+docs 12 release-gate checklist with evidence links. Docker/Coolify image and
+dependency downloads above ~50 MB remain owner-run: prepare exact
+copy-pasteable commands with working directory and purpose, then wait. Do not
+close live-provider/storage/jurisdiction gates from local capture evidence;
+keep ADR-0017 report semantics and ADR-0018 measurement posture intact.
