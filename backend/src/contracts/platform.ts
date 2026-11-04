@@ -29,12 +29,19 @@ const PlatformTenantSummaryObject = z.strictObject({
 export const PlatformTenantSummarySchema = PlatformTenantSummaryObject.readonly();
 export type PlatformTenantSummaryDto = z.infer<typeof PlatformTenantSummarySchema>;
 
+/** Session 4: all-time operational totals only — no filters, no rows, no PHI. */
+const StatusTotalsSchema = z.record(z.string(), z.number().int().nonnegative());
+
 export const PlatformTenantDetailSchema = PlatformTenantSummaryObject.extend({
   legalName: z.string(),
   timezone: z.string(),
   currency: z.string(),
   supportEmail: z.string(),
   createdAt: z.string().datetime(),
+  reportTotals: z.strictObject({
+    requests: StatusTotalsSchema,
+    visits: StatusTotalsSchema,
+  }),
 }).readonly();
 export type PlatformTenantDetailDto = z.infer<typeof PlatformTenantDetailSchema>;
 

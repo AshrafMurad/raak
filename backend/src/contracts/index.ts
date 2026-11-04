@@ -10,3 +10,4 @@ export * from './events';
 export * from './careplans';
 export * from './visits';
 export * from './notifications';
+export * from './reports';

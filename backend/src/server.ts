@@ -24,6 +24,7 @@ import { createCarePlanRouter } from './modules/care-plans/care-plan.controller'
 import { createSchedulingRouter } from './modules/scheduling/scheduling.controller';
 import { createChangeRequestRouter } from './modules/scheduling/change-request.controller';
 import { createVisitsRouter } from './modules/visits/visits.controller';
+import { createReportingRouter } from './modules/reporting/reporting.controller';
 import { createDocumentRouter } from './modules/documents/document.controller';
 import type { MalwareScanner, PrivateObjectStorage } from './modules/documents/private-storage';
 
@@ -241,6 +242,7 @@ export function buildApp(deps: AppDeps): Express {
       app.use('/v1', createCarePlanRouter(deps.db, deps.now));
       app.use('/v1', createSchedulingRouter(deps.db, deps.now));
       app.use('/v1', createVisitsRouter(deps.db, deps.now));
+      app.use('/v1', createReportingRouter(deps.db));
       app.use('/v1', createChangeRequestRouter(deps.db, deps.now));
       app.use(
         '/v1',
