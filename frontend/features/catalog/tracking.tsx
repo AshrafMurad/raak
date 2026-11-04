@@ -41,16 +41,24 @@ export function GuestTracking({ locale }: { locale: Locale }) {
       initialized.current = true;
       if (!captureFragment()) {
         const revision = capabilityRevision.current;
-        void apiRequest<RequestView[]>('/portal/my/requests')
+        const requestedId = new URLSearchParams(window.location.search).get('request');
+        const load = requestedId
+          ? apiRequest<RequestView>(`/portal/my/requests/${encodeURIComponent(requestedId)}`).then(
+              (row) => [row],
+            )
+          : apiRequest<RequestView[]>('/portal/my/requests');
+        void load
           .then((rows) => {
             if (revision === capabilityRevision.current) setView(rows[0] ?? null);
           })
-          .catch(() => {});
+          .catch(() => {
+            if (requestedId) setMessage(c.error);
+          });
       }
     }
     window.addEventListener('hashchange', captureFragment);
     return () => window.removeEventListener('hashchange', captureFragment);
-  }, []);
+  }, [c.error]);
   function consume() {
     const revision = capabilityRevision.current;
     startTransition(async () => {

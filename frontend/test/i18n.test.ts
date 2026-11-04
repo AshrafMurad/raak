@@ -23,6 +23,8 @@ import arCustomerVisits from '../messages/ar/customer-visits.json';
 import enCustomerVisits from '../messages/en/customer-visits.json';
 import arSettings from '../messages/ar/settings.json';
 import enSettings from '../messages/en/settings.json';
+import arNotifications from '../messages/ar/notifications.json';
+import enNotifications from '../messages/en/notifications.json';
 import {
   DEFAULT_LOCALE,
   LOCALE_DIRECTION,
@@ -56,6 +58,7 @@ describe('dictionaries', () => {
       [arCaregiverVisits, enCaregiverVisits],
       [arCustomerVisits, enCustomerVisits],
       [arSettings, enSettings],
+      [arNotifications, enNotifications],
     ]) {
       expect(keyPaths(english).sort()).toEqual(keyPaths(arabic).sort());
     }
@@ -87,6 +90,8 @@ describe('dictionaries', () => {
       enCustomerVisits,
       arSettings,
       enSettings,
+      arNotifications,
+      enNotifications,
     ]) {
       for (const path of keyPaths(dictionary)) {
         const parts = path.split('.');

@@ -13,6 +13,7 @@ import arPeople from '../../messages/ar/people.json';
 import enPeople from '../../messages/en/people.json';
 import arVisits from '../../messages/ar/customer-visits.json';
 import enVisits from '../../messages/en/customer-visits.json';
+import { NotificationBadge } from './notification-badge';
 
 const catalog = { ar: arCatalog, en: enCatalog };
 const people = { ar: arPeople, en: enPeople };
@@ -54,6 +55,7 @@ export function PortalFrame({
                 {name ?? c.brand}
               </Link>
               <nav className="raak-actions" aria-label={c.services}>
+                <NotificationBadge locale={locale} href={`/${locale}/notifications`} />
                 <Link href={`/${locale}/services`}>{c.services}</Link>
                 <Link href={`/${locale}/track`}>{c.track}</Link>
                 <Link href={`/${locale}/account`}>{people[locale].account}</Link>

@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import type { Locale } from '../../lib/i18n';
 import { ApiRequestError } from '../../lib/api-client';
 import { Button } from '../../components/ui/button';
@@ -8,6 +9,7 @@ import { Feedback } from '../../components/ui/feedback';
 import ar from '../../messages/ar/settings.json';
 import en from '../../messages/en/settings.json';
 import { getSettings, saveSettings, validSettings, type SchedulingSettings } from './api';
+import { notificationCopy } from '../notifications/copy';
 import '../../components/layout/visit-flow.css';
 
 export function SettingsScreen({ locale }: { locale: Locale }) {
@@ -51,6 +53,14 @@ export function SettingsScreen({ locale }: { locale: Locale }) {
           <h1>{c.title}</h1>
           <p>{c.intro}</p>
         </div>
+      </div>
+      <div className="raak-actions">
+        <Link href={`/${locale}/workspace/settings/notifications`}>
+          {notificationCopy(locale).policy}
+        </Link>
+        <Link href={`/${locale}/workspace/notifications/preferences`}>
+          {notificationCopy(locale).preferences}
+        </Link>
       </div>
       {message ? <Feedback title={message} tone={tone} /> : null}
       <Button

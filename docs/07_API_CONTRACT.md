@@ -187,10 +187,9 @@ rechecked against the current staff/tenant at the transactional service boundary
 - Start-review POST: `{expectedVersion}` → `{id,status:"UNDER_REVIEW",version}`.
   Only SUBMITTED can transition; concurrent losers receive 409; one history,
    audit and outbox write commits. Sprint 3 implements the decision endpoints below.
-- `/notifications` currently returns up to 100 safe notification references for
-  the current authorized coordinator/staff principal only, tagged with
-  `eventType` (`REQUEST_NEW`, `QUOTE_RESPONSE`, `QUOTE_REVISION_REQUESTED`).
-  Full notification inbox/read-policy management remains Sprint 7.
+- Sprint 7 Session 2 replaces the legacy `/notifications` array with the
+  current-principal paginated inbox documented below. Legacy RequestNotification
+  rows remain persisted; the inbox reads Notification only.
 - `VERSION_CONFLICT` is added to the error registry for catalog/branding/request
   optimistic concurrency; other status meanings remain unchanged.
 
@@ -790,10 +789,36 @@ CSRF; responses are no-store. Strict DTOs: `contracts/notifications.ts`.
   retries recipient resolution automatically; restoring verified accounts/grants
   is an existing separately authorized operation, never a delivery bypass.
 
-Session 1 adds no inbox or personal-preference transport; existing `/notifications`
-keeps its legacy projection. Business email rows may be PENDING with
+Session 1 added no inbox or personal-preference transport. Business email rows may be PENDING with
 TEMPLATE_NOT_CONFIGURED/EMAIL_NOT_CONFIGURED and zero attempts. These codes are
 delivery status metadata, not HTTP error registry additions. See docs 11 and ADR-0014.
+
+### Sprint 7 Session 2 — self inbox and personal preferences
+
+All routes require ACTIVE host-resolved tenant and live staff/customer account
+session; `notifications.receive` central audience gate at HTTP and transaction
+boundaries. Platform operators/guests denied. Every query includes tenant,
+principal type and principal ID; no recipient or tenant inputs. Mutations require
+CSRF. Responses are no-store. Strict schemas: `contracts/notifications.ts`.
+
+| Method/path | DTO/result |
+| --- | --- |
+| GET `/notifications?unreadOnly=true&limit=20&cursor=` | `{items:[{id,eventType,readAt,createdAt}],nextCursor,timezone}`; unreadOnly true/false (default false); limit 1–100; descending createdAt/id; opaque timestamp/UUID cursor; timestamps displayed in the returned agency timezone |
+| GET `/notifications/unread-count` | `{count}` for this account's unread Notification rows |
+| POST `/notifications/:id/read` | strict `{}` → `{id,readAt}`; first server timestamp persists across concurrent/repeated reads; other recipient/tenant/type returns 404 |
+| GET `/notifications/:id/target` | `{path:string|null}`; allowlisted relative locale-free frontend path after current tenant/object read checks, null for stale/unauthorized/missing targets; other recipient's notification is 404 |
+| GET `/notifications/preferences` | `{preferences:[{eventType,channel,optedOut,tenantEnabled}]}`; configurable cells only, opt-out defaults false |
+| PATCH `/notifications/preferences` | `{preferences:[{eventType,channel,optedOut}]}` (1–34 unique configurable cells) → `{ok:true}`; explicit-cell upserts, audit + IDs-only `notifications.preferences_updated` outbox in same transaction |
+
+Previews are localized client-side from matrix codes; no entity content, payload,
+patient identity or free text is returned. Self-owned generic history stays visible
+after resource access is revoked; navigation does not. Customer visit target
+requires current VIEW_VISITS grant (not request ownership); caregiver target
+requires current active profile/assignment and readable visit status. Agency
+targets re-evaluate live central read authority. Destination APIs independently
+reauthorize. See ADR-0015. Protected/duplicate/unknown preference cells or input
+fields return 422; personal opt-in cannot override a disabled tenant channel.
+Read commands do not emit business notifications or change domain history.
 
 ## Transaction example — assign (request/response)
 **Request:** `POST /v1/agency/visits/:id/assign`

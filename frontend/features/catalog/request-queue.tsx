@@ -31,11 +31,11 @@ export function RequestQueue({ locale }: { locale: Locale }) {
       apiRequest<{ items: RequestView[]; nextCursor: string | null }>(
         `/agency/requests${next ? `?cursor=${next}` : ''}`,
       ),
-      apiRequest<unknown[]>('/notifications'),
+      apiRequest<{ count: number }>('/notifications/unread-count'),
     ]);
     setRows(data.items);
     setCursor(data.nextCursor);
-    setNotifications(notices.length);
+    setNotifications(notices.count);
   }
   useEffect(() => {
     void load().catch(() => setMessage(c.error));

@@ -153,3 +153,18 @@ Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants 
   active unexpired VIEW_VISITS grant and verified active recipient account.
 - No inbox/read/preference endpoints are introduced in Session 1. Delivery
   observability omits recipient emails, payloads, capabilities and free text.
+
+## Sprint 7 Session 2 inbox authorization
+
+- Inbox/count/read/preferences use the central `notifications.receive` audience
+  gate plus same-tenant/current-principal/type scoping and live account/session
+  checks inside the transaction. Customer sessions must be verified. No platform
+  or guest inbox. Read/preference mutations require CSRF.
+- Stored notification ownership grants access only to code-only generic history.
+  `/notifications/:id/target` separately rechecks current object authority, including
+  VIEW_VISITS grants, active caregiver assignment/profile or agency read capability.
+  An unavailable target returns a generic null path, never resource content.
+  Target APIs recheck again. Tenant/recipient/type mismatches return 404.
+- Personal optional channel opt-outs cannot disable essential cells or re-enable
+  tenant-disabled cells. Agency policy settings retain Owner/Admin write and
+  Owner/Admin/Coordinator read authority and their independent optimistic version.

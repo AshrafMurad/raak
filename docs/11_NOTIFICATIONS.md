@@ -109,6 +109,22 @@ generation/invalidation remain Session 3. See ADR-0014 and sprint-07-status.md.
 - If resource later becomes unauthorized, clicking shows generic unavailable state, no leak via preview.
 - Optional future realtime transport may use SSE or WebSocket, with audience checks; polling is acceptable for MVP if responsive and server efficient.
 
+### Implemented Session 2
+
+`/notifications` now reads the new Notification table exclusively (no legacy
+union/backfill), with capped pages/unread-only filtering. Count and monotonic
+mark-read are current-principal/type/tenant only. Preview text derives from codes
+in `messages/{ar,en}/notifications.json`. Resource links resolve on demand under
+fresh authorization and show generic unavailable feedback after grant/assignment
+changes; destination APIs still deny independently.
+
+Workspace and portal headers poll unread count every 60 seconds and refresh on
+focus and confirmed read; failures hide the count rather than inventing zero.
+Both surfaces provide AR/EN inbox/preferences; agency settings link to protected
+matrix policy configuration. Optional personal choices expose tenant-disabled
+state; essential agency cells are visibly disabled and server-protected.
+No email renderer or reminder generation is registered by this session.
+
 ## Tests
 
 ### Implemented Sprint 6 durable events
