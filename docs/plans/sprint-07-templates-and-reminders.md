@@ -27,7 +27,7 @@ and Redis containers healthy. No installs or external email/storage calls needed
   reschedule/cancel between queue and send. No external I/O within transactions.
 - [x] Register renderer and due-event polling in existing worker; capture-mail
   browser journey opens authenticated tenant CTA in AR/EN; retain provider gate.
-- [ ] Update docs 06/07/11, ADR-0016, append status evidence; full prescribed
+- [x] Update docs 06/07/11, ADR-0016, append status evidence; full prescribed
   verification and scoped maintainability/security review; atomic commits.
 
 ## Review focus
