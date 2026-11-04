@@ -8,3 +8,4 @@ export * from './auth';
 export * from './platform';
 export * from './events';
 export * from './careplans';
+export * from './visits';
