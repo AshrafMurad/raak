@@ -19,6 +19,8 @@ export type WorkspaceNavigationItem = {
     | 'carePlans'
     | 'visits'
     | 'changes'
+    | 'reports'
+    | 'audit'
     | 'settings'
     | 'notifications'
     | 'login';
@@ -37,6 +39,8 @@ export function workspaceNavigationItems(locale: Locale): WorkspaceNavigationIte
     { id: 'carePlans', href: `/${locale}/workspace/care-plans`, label: labels.carePlans },
     { id: 'visits', href: `/${locale}/workspace/visits`, label: labels.visits },
     { id: 'changes', href: `/${locale}/workspace/changes`, label: labels.changes },
+    { id: 'reports', href: `/${locale}/workspace/reports`, label: labels.reports },
+    { id: 'audit', href: `/${locale}/workspace/audit`, label: labels.audit },
     { id: 'settings', href: `/${locale}/workspace/settings`, label: labels.settings },
     {
       id: 'notifications',
