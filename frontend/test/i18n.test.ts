@@ -17,6 +17,12 @@ import arVisits from '../messages/ar/visits.json';
 import enVisits from '../messages/en/visits.json';
 import arWorkspace from '../messages/ar/workspace.json';
 import enWorkspace from '../messages/en/workspace.json';
+import arCaregiverVisits from '../messages/ar/caregiver-visits.json';
+import enCaregiverVisits from '../messages/en/caregiver-visits.json';
+import arCustomerVisits from '../messages/ar/customer-visits.json';
+import enCustomerVisits from '../messages/en/customer-visits.json';
+import arSettings from '../messages/ar/settings.json';
+import enSettings from '../messages/en/settings.json';
 import {
   DEFAULT_LOCALE,
   LOCALE_DIRECTION,
@@ -47,6 +53,9 @@ describe('dictionaries', () => {
       [arCarePlans, enCarePlans],
       [arVisits, enVisits],
       [arWorkspace, enWorkspace],
+      [arCaregiverVisits, enCaregiverVisits],
+      [arCustomerVisits, enCustomerVisits],
+      [arSettings, enSettings],
     ]) {
       expect(keyPaths(english).sort()).toEqual(keyPaths(arabic).sort());
     }
@@ -72,6 +81,12 @@ describe('dictionaries', () => {
       enVisits,
       arWorkspace,
       enWorkspace,
+      arCaregiverVisits,
+      enCaregiverVisits,
+      arCustomerVisits,
+      enCustomerVisits,
+      arSettings,
+      enSettings,
     ]) {
       for (const path of keyPaths(dictionary)) {
         const parts = path.split('.');
