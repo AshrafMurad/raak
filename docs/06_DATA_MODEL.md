@@ -276,3 +276,23 @@ result summaries. No historical migration was edited. `seed-visits.ts` adds one
 create-only synthetic confirmed standalone visit and task snapshots. On fresh seeds,
 patient one's initial synthetic grant includes VIEW_VISITS/MANAGE_VISITS; reruns do
 not overwrite existing grants, including operator revocations/edits.
+
+## Sprint 7 Session 1 persistence
+
+Additive migration `20261104120000_sprint7_notifications` adds:
+
+- `Tenant.notificationSettingsVersion`, independent of scheduling/branding versions.
+- `NotificationPolicy`: sparse `(tenantId,eventType,channel)` overrides, enabled,
+  bounded reminderOffsetMin (stored only; no reminder jobs), same-tenant updater FK
+  and update time. Protected cells always derive from the canonical matrix.
+- `NotificationPreference`: per-tenant/principal/event/channel optional opt-out.
+  Polymorphic principals are re-resolved before use; essential channels ignore opt-outs.
+- `Notification`: codes/resource IDs only, readAt and creation time. Composite FK
+  to the same-tenant outbox event; unique event/principal tuple deduplicates in-app
+  delivery. Session 2 renders localized previews and supplies inbox operations.
+- `NotificationDelivery`: per-event/principal/EMAIL unique, safe status/error code,
+  capped attempts, retry/lease times and execution token. Composite event FK and
+  state/lease checks protect integrity. Token-conditional results fence stale runners.
+
+Existing EmailDelivery and RequestNotification tables remain unchanged. See
+ADR-0014 for pending renderer handling and event ownership.

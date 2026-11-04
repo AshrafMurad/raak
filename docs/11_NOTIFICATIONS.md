@@ -64,7 +64,47 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 5. Transient failures -> bounded exponential backoff; permanent -> mark failed and escalate; admin can view safe failure information.
 6. On success, in-app unread state persists until user reads; email delivery does not mark notification read.
 
-## In-app behavior
+## Sprint 7 Session 1 infrastructure
+
+Canonical channel policy lives in `contracts/notifications.ts`. Configurable
+cells default enabled; fixed in-app and required email cells ignore tenant/personal
+disable attempts. Personal opt-outs are persisted and enforced for configurable
+cells only; their transport/UI is Session 2.
+
+The general dispatcher currently maps `request.new`, `quote.responded`,
+`quote.revision_requested`, `visit.needs_review`, `caregiver.exception_changed`,
+`visit.assigned` and `visit.change_approved` to code/ID-only in-app records and
+per-recipient email rows. Approved changes map to VISIT_CHANGED/VISIT_CANCELLED
+by change type. It resolves current accounts/roles, assignment and VIEW_VISITS
+grants; tenant suspension leaves operational events pending. Unsupported events,
+including requester quote/request template events and legacy identity mail, remain
+durable and unprocessed. They are not blanket-acknowledged. Existing dedicated
+request verification/claim-email handling remains unchanged.
+
+`raak-notification-email` supports durable per-recipient delivery, two-minute
+execution-token leases, five attempts, bounded exponential retry, terminal failures
+and stable delivery-ID provider dedupe. Email send rechecks current recipients,
+grants, tenant and policy. External calls occur outside transactions. No production
+business renderer is registered until Session 3: queued work remains PENDING with
+TEMPLATE_NOT_CONFIGURED and zero attempts, never SENT. Capture senders/renderers
+test this infrastructure; they do not establish live email evidence. Admins inspect
+safe failure metadata through `/agency/notification-deliveries`.
+
+Obsolete needs-review/assignment notices are suppressed against current visit
+state. Essential changes lacking an eligible customer remain unprocessed and
+appear in the admin endpoint's `blockedEvents` with RECIPIENT_RESOLUTION_PENDING;
+automatic re-resolution recovers after legitimate account/grant restoration.
+
+Legacy identity/security policy is preserved, not newly generalized: owner,
+password-reset, invitation and activation event kinds remain pending for their
+own safe-delivery integration; existing customer verification/claim emails still
+use their dedicated ACTIVE-tenant path. No production identity-mail claim is made.
+
+`RequestNotification` is retained for existing clients; Session 2 adopts the new
+inbox rather than unioning both projections. Full matrix templates and reminder
+generation/invalidation remain Session 3. See ADR-0014 and sprint-07-status.md.
+
+## In-app behavior (UI requirements)
 - Header badge count uses current principal and tenant; pages support unread-only and mark-as-read; link to corresponding tenant-authorized resource.
 - If resource later becomes unauthorized, clicking shows generic unavailable state, no leak via preview.
 - Optional future realtime transport may use SSE or WebSocket, with audience checks; polling is acceptable for MVP if responsive and server efficient.

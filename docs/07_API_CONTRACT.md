@@ -764,7 +764,38 @@ remains Sprint 7. See ADR-0013 and `plans/sprint-06-status.md` for evidence/gate
 | GET | `/agency/reports/requests` | Tenant-scoped request funnel |
 | GET | `/agency/reports/caregivers` | Tenant-scoped loads (operational, not clinical judgment) |
 
-## Transaction example — assign
+### Sprint 7 Session 1 — notification policy and delivery observability
+
+All routes below require the host-resolved ACTIVE tenant, current staff session,
+central authorize gate and transactional live-principal checks. Mutations require
+CSRF; responses are no-store. Strict DTOs: `contracts/notifications.ts`.
+
+- `GET /agency/notification-policies`: Owner/Admin/Coordinator →
+  `{version,policies:[{eventType,channel,enabled,configurable,reminderOffsetMin}]}`.
+  Includes every docs 11 matrix cell. Required/fixed cells cannot be changed.
+- `PATCH /agency/notification-policies`: Owner/Admin only;
+  `{expectedVersion,policies:[{eventType,channel,enabled,reminderOffsetMin?}]}`
+  (1–34 unique cells). Only configurable cells accepted; immutable, duplicate,
+  unknown fields/codes/channels return 422 VALIDATION_FAILED. Stale version is
+  409 VERSION_CONFLICT. Offset is null or integer 1–10080, only on VISIT_REMINDER;
+  this stores policy, not a scheduled reminder. Returns `{version}`; writes policy,
+  independent version, audit and IDs-only `notifications.policy_updated` event together.
+- `GET /agency/notification-deliveries?status=&cursor=&limit=`: Owner/Admin only;
+  status PENDING/SENDING/SENT/FAILED/SKIPPED, UUID cursor, limit 1–100 (default 20).
+  Returns `{items,nextCursor,blockedEvents,blockedNextCursor}` ordered by descending UUID with only
+  `id,eventType,channel,status,attempts,retryAt,lastErrorCode,createdAt`.
+  No recipient email, arbitrary provider message, body, secret or event payload.
+  `blockedEvents` pages unresolved essential change events as
+  `{id,eventType,createdAt,code:"RECIPIENT_RESOLUTION_PENDING"}`. The dispatcher
+  retries recipient resolution automatically; restoring verified accounts/grants
+  is an existing separately authorized operation, never a delivery bypass.
+
+Session 1 adds no inbox or personal-preference transport; existing `/notifications`
+keeps its legacy projection. Business email rows may be PENDING with
+TEMPLATE_NOT_CONFIGURED/EMAIL_NOT_CONFIGURED and zero attempts. These codes are
+delivery status metadata, not HTTP error registry additions. See docs 11 and ADR-0014.
+
+## Transaction example — assign (request/response)
 **Request:** `POST /v1/agency/visits/:id/assign`
 ```json
 {"caregiverId":"<uuid>","expectedVisitVersion":4,"reason":"Primary unavailable"}

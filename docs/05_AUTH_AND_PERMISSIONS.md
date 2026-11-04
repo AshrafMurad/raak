@@ -141,3 +141,15 @@ Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants 
 - Customer projections exclude tasks, internal notes, addresses and completion JSON.
   Caregiver projections exclude agency-wide notes and full patient rows. Platform
   operators receive none of these actions. Wrong-tenant object IDs return 404.
+
+## Sprint 7 Session 1 notification policy
+
+- `notifications.policy.read`: Owner/Admin/Coordinator; `notifications.policy.manage`
+  and `notifications.deliveries.read`: Owner/Admin. HTTP and transactional services
+  both apply the central policy and live session/tenant checks. Mutations require CSRF.
+- `notifications.receive` is an audience gate for active tenant staff/customers,
+  never resource authorization. The dispatcher additionally checks the exact
+  same-tenant aggregate, current coordinator role/current caregiver assignment or
+  active unexpired VIEW_VISITS grant and verified active recipient account.
+- No inbox/read/preference endpoints are introduced in Session 1. Delivery
+  observability omits recipient emails, payloads, capabilities and free text.

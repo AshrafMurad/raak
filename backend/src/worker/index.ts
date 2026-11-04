@@ -11,6 +11,7 @@ import { createLogger, parseLogLevel } from '../logger';
 import { loadWorkerEnv } from './env';
 import { QUEUES } from './queues';
 import { workerHealthHandler } from './health';
+import { startNotifications } from './notifications';
 
 const env = loadWorkerEnv();
 const logger = createLogger({ service: 'worker', level: parseLogLevel(env.LOG_LEVEL) });
@@ -75,8 +76,12 @@ const poller = emailConfigured
 if (!emailConfigured)
   logger.warn('request email delivery is not configured', { code: 'EMAIL_NOT_CONFIGURED' });
 
-// Only the dedicated Sprint 2 request-email queue is consumed. Future outbox
-// event kinds remain durable and unacknowledged for their owning workflows.
+const notifications = startNotifications({ db: getPrisma(), connection, now: () => new Date(),
+  onError: () => logger.warn('notification dispatch unavailable', { code: 'NOTIFICATION_DISPATCH_FAILED' }),
+  ...(emailConfigured ? { send: resendSender(env.EMAIL_API_KEY!, env.EMAIL_FROM!) } : {}),
+});
+// Session 3 registers business renderers. Unsupported/legacy event kinds retain
+// their existing ownership; absent renderers leave email deliveries pending.
 
 const healthServer = http.createServer((req, res) => {
   void workerHealthHandler({
@@ -97,6 +102,7 @@ async function shutdown(signal: NodeJS.Signals) {
   logger.info('worker shutting down', { signal });
   healthServer.close();
   if (poller) clearInterval(poller);
+  await notifications.close();
   await emailWorker?.close();
   await disconnectPrisma();
   await queue.close().catch((error: unknown) => {
