@@ -217,12 +217,5 @@ export function createRequestingRouter(
       });
     }),
   );
-  router.get(
-    '/notifications',
-    ...guards,
-    asyncHandler(async (req, res) => {
-      res.json({ data: await service.notifications(req.auth!) });
-    }),
-  );
   return router;
 }

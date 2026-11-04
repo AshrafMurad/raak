@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import ar from '../../messages/ar/workspace.json';
 import en from '../../messages/en/workspace.json';
 import type { Locale } from '../../lib/i18n';
+import { notificationCopy } from '../../features/notifications/copy';
 
 const copy = { ar, en };
 
@@ -19,6 +20,7 @@ export type WorkspaceNavigationItem = {
     | 'visits'
     | 'changes'
     | 'settings'
+    | 'notifications'
     | 'login';
   href: string;
   label: string;
@@ -36,6 +38,11 @@ export function workspaceNavigationItems(locale: Locale): WorkspaceNavigationIte
     { id: 'visits', href: `/${locale}/workspace/visits`, label: labels.visits },
     { id: 'changes', href: `/${locale}/workspace/changes`, label: labels.changes },
     { id: 'settings', href: `/${locale}/workspace/settings`, label: labels.settings },
+    {
+      id: 'notifications',
+      href: `/${locale}/workspace/notifications`,
+      label: notificationCopy(locale).title,
+    },
     { id: 'login', href: `/${locale}/login`, label: labels.login },
   ];
 }

@@ -21,6 +21,7 @@ export function Caregivers({ locale, own = false }: { locale: Locale; own?: bool
   const [pending, start] = useTransition();
   useEffect(() => {
     let active = true;
+    const requestedId = new URLSearchParams(window.location.search).get('caregiver');
     const load = own
       ? apiRequest<Caregiver>('/caregiver/my/profile').then((data) => {
           if (active) setSelected(data);
@@ -30,6 +31,14 @@ export function Caregivers({ locale, own = false }: { locale: Locale; own?: bool
             setRows(data.items);
             setCursor(data.nextCursor);
           }
+        });
+    if (!own && requestedId)
+      void apiRequest<Caregiver>(`/agency/caregivers/${encodeURIComponent(requestedId)}`)
+        .then((data) => {
+          if (active) setSelected(data);
+        })
+        .catch((e: unknown) => {
+          if (active) setMessage(peopleError(c, e));
         });
     load
       .catch((e: unknown) => {

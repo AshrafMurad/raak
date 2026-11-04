@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation';
 import ar from '../../messages/ar/workspace.json';
 import en from '../../messages/en/workspace.json';
 import { useWorkspaceQuery } from '../../lib/use-workspace-query';
+import { NotificationBadge } from './notification-badge';
 
 const copy = { ar, en };
 
@@ -41,6 +42,7 @@ export function WorkspaceFrame({ locale, children }: { locale: Locale; children:
         <header className="rv-header">
           <div className="rv-breadcrumb">{labels.workspace}</div>
           <nav className="rv-header-actions" aria-label={labels.preferences}>
+            <NotificationBadge locale={locale} href={`/${locale}/workspace/notifications`} />
             <Link
               className="rv-language"
               href={`/${otherLocale(locale)}${pathname.slice(locale.length + 1)}${search}`}
