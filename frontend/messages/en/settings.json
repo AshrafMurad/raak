@@ -1,0 +1,21 @@
+{
+  "title": "Scheduling policy",
+  "intro": "Agency scheduling rules. Changes are audited and never rewrite existing appointments.",
+  "loading": "Loading…",
+  "saved": "The server confirmed the new policy.",
+  "savedScan": "Updated. Upcoming assignments flagged: {flagged}, resolved: {healed}.",
+  "error": "This action could not be completed. No success has been assumed.",
+  "denied": "You cannot manage agency settings.",
+  "stale": "These settings changed. Refresh before retrying.",
+  "validation": "Review the allowed ranges.",
+  "refresh": "Refresh",
+  "save": "Save policy",
+  "timezone": "Agency timezone (read-only)",
+  "travelBuffer": "Travel buffer between visits (minutes, 0–120)",
+  "travelBufferHelp": "Applies before and after each visit. Raising it flags conflicting upcoming assignments for review; it never cancels them.",
+  "cancelCutoff": "Cancellation cutoff (hours before the visit, 0–168)",
+  "rescheduleCutoff": "Reschedule cutoff (hours before the visit, 0–168)",
+  "cutoffHelp": "Customer requests after the cutoff are marked late.",
+  "allowLateReview": "Allow customers to submit late requests for priority review",
+  "allowLateReviewHelp": "When disabled, late requests are refused and the customer is asked to contact the agency."
+}
