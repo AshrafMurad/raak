@@ -71,6 +71,17 @@ No full patient name/address, free-text notes, diagnosis, clinical instructions 
 
 ## Tests
 
+### Implemented Sprint 6 durable events
+
+`VisitEvents` records started, task_updated, draft_saved, completed, needs_review,
+reviewed, corrected, change_requested/approved/rejected/withdrawn and scheduling
+settings updates. Each commits with its business mutation; note bodies, task
+exception text and restricted review notes are excluded from event payloads.
+Events identify their visit or change-request aggregate; delivery resolves tenant,
+current authorization and recipients afresh. A NEEDS_REVIEW completion is visible
+in the agency visit list/detail. General visit notification delivery and live email
+verification remain Sprint 7/open gates, not acceptance claims for this sprint.
+
 ### Implemented Sprint 5 assignment-health events
 
 `visit.reassignment_flagged` and `visit.reassignment_resolved` are durable
