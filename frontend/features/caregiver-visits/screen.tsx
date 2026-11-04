@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import type { Locale } from '../../lib/i18n';
 import { PortalFrame } from '../../components/layout/portal-frame';
 import { Button } from '../../components/ui/button';
@@ -33,6 +33,7 @@ export function CaregiverVisitsScreen({ locale }: { locale: Locale }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [pending, start] = useTransition();
+  const openButtons = useRef(new Map<string, HTMLButtonElement>());
   const load = useCallback(async () => {
     const data = await listCaregiverVisits(date ? { from: date, to: date } : {});
     setVisits(data.items);
@@ -130,7 +131,15 @@ export function CaregiverVisitsScreen({ locale }: { locale: Locale }) {
                         <p>
                           {formatDateTime(visit.scheduledStartUtc, locale, visit.timezoneSnapshot)}
                         </p>
-                        <Button onClick={() => setSelected(visit.id)}>{c.open}</Button>
+                        <Button
+                          ref={(node) => {
+                            if (node) openButtons.current.set(visit.id, node);
+                            else openButtons.current.delete(visit.id);
+                          }}
+                          onClick={() => setSelected(visit.id)}
+                        >
+                          {c.open}
+                        </Button>
                       </article>
                     ))}
                   </div>
@@ -165,6 +174,7 @@ export function CaregiverVisitsScreen({ locale }: { locale: Locale }) {
             locale={locale}
             onClose={() => setSelected(null)}
             onChanged={load}
+            returnFocus={() => openButtons.current.get(selected) ?? null}
           />
         ) : null}
       </div>
