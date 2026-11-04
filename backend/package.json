@@ -20,6 +20,7 @@
     "test:browser:sprint3": "tsx test/browser/sprint3.e2e.ts",
     "test:browser:sprint4": "tsx test/browser/sprint4.e2e.ts",
     "test:browser:sprint5": "tsx test/browser/sprint5.e2e.ts",
+    "test:browser:sprint6": "tsx test/browser/sprint6.e2e.ts",
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate": "prisma migrate deploy",
