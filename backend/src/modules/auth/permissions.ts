@@ -32,6 +32,11 @@ export const PERMISSION_ACTIONS = [
   'careplans.clinical_approve',
   'visits.read',
   'scheduling.manage',
+  'visits.self_execute',
+  'visits.review',
+  'visits.customer_change',
+  'agency.settings.read',
+  'agency.settings.manage',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -84,6 +89,8 @@ export function authorize(
           'careplans.manage',
           'visits.read',
           'scheduling.manage',
+          'visits.review',
+          'agency.settings.read',
         ].includes(action)
       )
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
@@ -91,10 +98,15 @@ export function authorize(
         action === 'catalog.publish' ||
         action === 'branding.manage' ||
         action === 'patients.grants' ||
-        action === 'caregivers.verify'
+        action === 'caregivers.verify' ||
+        action === 'agency.settings.manage'
       )
         return { allowed: admin };
       if (action === 'caregivers.self_read') return { allowed: principal.role === 'CAREGIVER' };
+      // Sprint 6 caregiver execution audience gate: the visits service must
+      // additionally verify the visit is assigned to the caller's own
+      // caregiver profile (deny by default; never a role-only grant).
+      if (action === 'visits.self_execute') return { allowed: principal.role === 'CAREGIVER' };
       // A06 audience gate only: the care-plan service must additionally verify
       // the approver's agency-verified qualification for the exact service
       // (denies by default; titles never confer clinical authority).
@@ -119,7 +131,10 @@ export function authorize(
       allowed:
         action === 'customers.claim' ||
         action === 'patients.granted_read' ||
-        action === 'documents.read_granted',
+        action === 'documents.read_granted' ||
+        // Audience gate only: the change-request service additionally requires
+        // an active MANAGE_VISITS PatientAccess grant for the visit's patient.
+        action === 'visits.customer_change',
     };
   return { allowed: false };
 }
