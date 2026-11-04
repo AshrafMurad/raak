@@ -123,4 +123,21 @@ Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants 
 - Candidate responses expose only operational fields (name, load, area flags,
   safe exclusion codes). Visit projections never include license numbers; plan
   clinical instructions are only visible through care-plan read projections.
-  Platform operators and customers have no care-plan/visit access.
+  Platform operators and customers have no access to these agency management
+  routes. Sprint 6 adds separate customer projections under explicit visit grants.
+
+## Implemented Sprint 6 policy
+
+- `visits.self_execute`: CAREGIVER audience only, plus a live verified active
+  staff account, active linked caregiver and exact current visit assignment.
+  List/detail and every execution write recheck that resource relationship.
+- `visits.review`: Owner/Admin/Coordinator, completed visit only, optimistic
+  version, separate review record or append-only correction; no timestamp override.
+- `visits.customer_change`: verified customer audience; VIEW_VISITS for list/detail,
+  MANAGE_VISITS for submit/withdraw and a fresh requester/grant check at approval.
+  Revoked/expired grants deny immediately. Request ownership has no authority here.
+- `agency.settings.read`: Owner/Admin/Coordinator; `agency.settings.manage`:
+  Owner/Admin only. Settings are server-resolved tenant data, not client tenancy.
+- Customer projections exclude tasks, internal notes, addresses and completion JSON.
+  Caregiver projections exclude agency-wide notes and full patient rows. Platform
+  operators receive none of these actions. Wrong-tenant object IDs return 404.
