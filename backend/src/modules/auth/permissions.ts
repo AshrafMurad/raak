@@ -37,6 +37,10 @@ export const PERMISSION_ACTIONS = [
   'visits.customer_change',
   'agency.settings.read',
   'agency.settings.manage',
+  'notifications.policy.read',
+  'notifications.policy.manage',
+  'notifications.deliveries.read',
+  'notifications.receive',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -91,6 +95,7 @@ export function authorize(
           'scheduling.manage',
           'visits.review',
           'agency.settings.read',
+          'notifications.policy.read',
         ].includes(action)
       )
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
@@ -99,10 +104,14 @@ export function authorize(
         action === 'branding.manage' ||
         action === 'patients.grants' ||
         action === 'caregivers.verify' ||
-        action === 'agency.settings.manage'
+        action === 'agency.settings.manage' ||
+        action === 'notifications.policy.manage' ||
+        action === 'notifications.deliveries.read'
       )
         return { allowed: admin };
       if (action === 'caregivers.self_read') return { allowed: principal.role === 'CAREGIVER' };
+      if (action === 'notifications.receive')
+        return { allowed: admin || principal.role === 'CARE_COORDINATOR' || principal.role === 'CAREGIVER' };
       // Sprint 6 caregiver execution audience gate: the visits service must
       // additionally verify the visit is assigned to the caller's own
       // caregiver profile (deny by default; never a role-only grant).
@@ -130,6 +139,7 @@ export function authorize(
     return {
       allowed:
         action === 'customers.claim' ||
+        action === 'notifications.receive' ||
         action === 'patients.granted_read' ||
         action === 'documents.read_granted' ||
         // Audience gate only: the change-request service additionally requires

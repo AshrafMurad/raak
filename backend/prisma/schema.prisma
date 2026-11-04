@@ -28,6 +28,7 @@ model Tenant {
   allowLateReview              Boolean @default(true) @map("allow_late_review")
   /// Optimistic concurrency for scheduling-policy settings edits.
   settingsVersion              Int     @default(0) @map("settings_version")
+  notificationSettingsVersion Int     @default(0) @map("notification_settings_version")
   supportEmail    String       @map("support_email")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
@@ -45,6 +46,8 @@ model Tenant {
   visits           Visit[]
   visitNotes       VisitNote[]
   visitChanges     VisitChangeRequest[]
+  notificationPolicies NotificationPolicy[]
+  notificationPreferences NotificationPreference[]
 
   @@index([status])
   @@map("tenants")
@@ -133,6 +136,7 @@ model StaffAccount {
   visitNotes            VisitNote[]
   visitChangeDecisions  VisitChangeRequest[]
   visitReviews          VisitReview[]
+  notificationPoliciesUpdated NotificationPolicy[]
 
   @@unique([tenantId, emailNormalized])
   @@unique([tenantId, id])
@@ -382,6 +386,8 @@ model OutboxEvent {
   createdAt      DateTime        @default(now()) @map("created_at")
   processedAt    DateTime?       @map("processed_at")
   deliveries     EmailDelivery[]
+  notifications Notification[]
+  notificationDeliveries NotificationDelivery[]
 
   @@unique([tenantId, id])
   @@index([processedAt, createdAt])
@@ -622,6 +628,73 @@ model EmailDelivery {
 
   @@index([status, retryAt])
   @@map("email_deliveries")
+}
+
+model NotificationPolicy {
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  eventType String @map("event_type")
+  channel String
+  enabled Boolean
+  reminderOffsetMin Int? @map("reminder_offset_min")
+  updatedBy String @map("updated_by") @db.Uuid
+  updater StaffAccount @relation(fields: [tenantId, updatedBy], references: [tenantId, id])
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@id([tenantId, eventType, channel])
+  @@map("notification_policies")
+}
+
+/// Polymorphic principal checked against the same tenant by workflow services.
+model NotificationPreference {
+  tenantId String @map("tenant_id") @db.Uuid
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  principalType PrincipalType @map("principal_type")
+  principalId String @map("principal_id") @db.Uuid
+  eventType String @map("event_type")
+  channel String
+  optedOut Boolean @default(false) @map("opted_out")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@id([tenantId, principalType, principalId, eventType, channel])
+  @@map("notification_preferences")
+}
+
+/// Codes and IDs only; localized safe previews are rendered at the UI seam.
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  event OutboxEvent @relation(fields: [tenantId, eventId], references: [tenantId, id])
+  principalType PrincipalType @map("principal_type")
+  recipientPrincipalId String @map("recipient_principal_id") @db.Uuid
+  eventType String @map("event_type")
+  entityType String @map("entity_type")
+  entityId String @map("entity_id") @db.Uuid
+  readAt DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([tenantId, eventId, principalType, recipientPrincipalId])
+  @@index([tenantId, recipientPrincipalId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  eventId String @map("event_id") @db.Uuid
+  event OutboxEvent @relation(fields: [tenantId, eventId], references: [tenantId, id])
+  principalType PrincipalType @map("principal_type")
+  recipientPrincipalId String @map("recipient_principal_id") @db.Uuid
+  eventType String @map("event_type")
+  channel String @default("EMAIL")
+  status String @default("PENDING")
+  attempts Int @default(0)
+  retryAt DateTime @default(now()) @map("retry_at")
+  leaseUntil DateTime? @map("lease_until")
+  executionToken String? @map("execution_token") @db.Uuid
+  lastErrorCode String? @map("last_error_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([tenantId, eventId, principalType, recipientPrincipalId, channel])
+  @@index([tenantId, status, retryAt])
+  @@map("notification_deliveries")
 }
 
 /// docs 04 BR-QTE / docs 06 — versioned commercial offers. All versions of a

@@ -13,6 +13,7 @@ import { createAuthRouter, type RateLimits } from './modules/auth/auth.controlle
 import { createAgencyRouter } from './modules/agency/agency.controller';
 import { createStaffRouter } from './modules/staff/staff.controller';
 import { createPlatformRouter } from './modules/platform/platform.controller';
+import { createNotificationRouter } from './modules/notifications/notifications.controller';
 import { createCatalogRouter } from './modules/catalog/catalog.controller';
 import { createRequestingRouter } from './modules/requesting/requesting.controller';
 import { createQuoteRouter } from './modules/commercial/quote.controller';
@@ -224,6 +225,7 @@ export function buildApp(deps: AppDeps): Express {
         }),
       );
       app.use('/v1', createPlatformRouter({ db: deps.db, now: deps.now }));
+      app.use('/v1', createNotificationRouter(deps.db));
       app.use('/v1', createCatalogRouter(deps.db));
       app.use(
         '/v1',
