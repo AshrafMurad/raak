@@ -188,3 +188,145 @@ scheduling/invalidation. Reuse Session 1 delivery dedupe/retry/provider gates an
 Session 2 preference transport; maintain optional-only semantics and current
 authorization at delivery/navigation. Production renderers must not be inferred
 from inbox text; email remains fail-closed until its provider/template gates pass.
+
+## Session 3 — Business templates and visit reminders
+
+Date: 2026-11-04. Branch `feat/sprint7-templates-and-reminders`, from updated
+main `15e2217`. Session 2 PR #10 confirmed MERGED through `gh pr list` before
+branching/coding. Feature commit: `fcdd79b` —
+`feat(notifications): add localized templates and versioned visit reminders`.
+Local commits only; no push or merge performed.
+
+### Implemented
+
+- Every docs 11 matrix code has AR/EN safe plain-text copy and generic subject;
+  public agency label sanitization, RTL/LTR isolation and allowlisted tenant-origin
+  authenticated CTA routes. No patient/service identity, visit time, addresses,
+  restricted notes or commercial free text enters rendered business mail.
+- Registered production business renderer under the existing configured-provider
+  gate; retained bounded retries, stable delivery-ID dedupe, fenced leases and
+  safe attempts/error observability. Missing provider remains PENDING with zero
+  attempts and EMAIL_NOT_CONFIGURED, never a simulated send.
+- Request information/quote/replacement and visit confirmation/reassignment event
+  mappings; current verified accounts/roles/assignment/grants resolved per tenant.
+  Request-only guests require consumed proof matching the current email hash,
+  receive EMAIL only and gain no inbox/session/patient authority. Request-specific
+  CTA prevents an existing different-request guest session selecting the wrong item.
+- Account notification locale defaults Arabic, self-updatable through existing
+  preference transport with CSRF/live-session checks; new customers inherit their
+  registration locale. Existing UI is unchanged.
+- Additive reminder snapshots and separate visit reminder revisions. Shared
+  assignment core and approved-change transactions replace pending generations;
+  default optional 24h/2h per channel or one configured channel offset. Only
+  strictly future deadlines are scheduled. Due/revision/window/state, current
+  recipient authority, suspension and optional policy/preferences rechecked at
+  dispatch and send. Cancellation/reschedule fences obsolete pending mail.
+- Tests cover deadline/inside-offset boundaries, concurrent dedupe/replacement,
+  stale/cancelled/started suppression, missing provider, optional preferences,
+  verified guests and cross-tenant denial. Existing approved-change API tests now
+  assert reminder rollback/replacement/cancellation and replay-stable revision;
+  real quote/replacement workflow captures dispatched content. Browser capture
+  checks actual authenticated CTAs and the two-request guest regression in AR/EN.
+
+### Key files and review
+
+`backend/src/modules/notifications/templates.ts`, `messages/{ar,en}.json`,
+`reminders.ts`, `audience.ts`, `delivery.ts`, `worker/{index,notifications}.ts`,
+assignment/change transaction hooks, notification contracts/preferences,
+`backend/prisma/schema.prisma` and two additive migrations,
+`test/notifications/{templates.test,reminders.integration.test}.ts`,
+`test/browser/sprint7-templates.e2e.ts`. Docs 05/06/07/11 and ADR-0016 updated.
+
+One independent read-only final review found a medium guest-CTA navigation issue;
+the integration assertion failed before correction, then passed. Both locales'
+browser regressions and full backend suite passed after the fix. Additional
+quote and approved-change assertions address identified coverage limits. See
+`sprint-07-templates-review.md` for review coverage, caller inventory and limits;
+`sprint-07-templates-and-reminders.md` for the completed checklist/ledger.
+
+### Exact verification (commands executed separately)
+
+Working directory `backend/`:
+
+| Command | Final result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0, no warnings |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS, 42 files / 320 tests; full suite rerun after review fix |
+| `npm run build` | PASS, API/worker bundles; rerun after review fix |
+| `npm exec -- prisma validate` | PASS, schema valid |
+| `npm exec -- prisma migrate status` | PASS, 16 migrations, database up to date |
+| `npm exec -- prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | PASS, no difference, exit 0 |
+| `npm run test:browser` | PASS E01/E02 AR/EN and light/dark mobile/desktop UI matrix |
+| `npm run test:browser:sprint3` | PASS E03/I10/I11 AR/EN and commercial workspace matrix |
+| `npm run test:browser:sprint4` | PASS E04/F05/F06 AR/EN, caregiver/file synthetic-double and responsive/theme matrices |
+| `npm run test:browser:sprint5` | PASS AR/EN plans/assignment/leave/reassignment and route matrix |
+| `npm run test:browser:sprint6` | PASS E06/E07 AR/EN, completion/history/changes/settings/reflow |
+| `npm run test:browser:sprint7-inbox` | PASS staff AR/EN desktop-light/360px-dark and customer AR/EN inbox/preferences/grant flows |
+| `npm run test:browser:sprint7-templates` | PASS AR/EN 360px captured-reminder CTA + AR/EN guest session A denied request B until B-specific verification |
+
+Working directory `frontend/` (no source changes):
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0 |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS, 18 files / 83 tests, including i18n parity |
+| `npm run build` | PASS, 62 static pages generated |
+| `npm run build:browser` | PASS, executed before browser suites |
+
+Root: `git diff --check` and `git diff --cached --check` PASS. Browser suites use
+installed Chrome. No dependencies, images, fonts or browser binaries downloaded.
+Existing pg concurrent-query deprecation warnings remain in integration/browser
+output; no test failure is hidden by them.
+
+### Initial failures and migration recovery
+
+- Template/reminder tests initially failed because their implementations did not
+  exist; assignment reminder assertion failed before the hook; guest CTA assertion
+  failed before the review fix. All subsequently passed.
+- Initial `npm exec -- prisma migrate deploy` failed P3018/42883: an existing
+  enum CHECK could not survive conversion of delivery principal_type to text.
+  This session's not-yet-applied migration was corrected to drop that CHECK before
+  conversion and add the new constrained text CHECK. Already-created additive
+  columns were preserved with IF NOT EXISTS. No data reset or historical migration
+  edit was performed. Recovery commands, separately:
+  `npm exec -- prisma migrate resolve --rolled-back 20261104130000_sprint7_templates_reminders`,
+  `npm exec -- prisma migrate deploy`, `npm run generate` — all PASS.
+- Initial schema diff found a PostgreSQL-truncated reminder index name. A second
+  additive index-rename migration and explicit Prisma map resolved it;
+  `npm exec -- prisma migrate deploy` PASS, final validate/status/diff PASS.
+- Initial lint rejected a control-character regex; equivalent code-point filtering
+  passed lint and injection tests. Initial typecheck caught nullable quote expiry;
+  explicit fail-closed null handling fixed it.
+- First full suite had 3 bulk tests counting all visit events; the new confirmation
+  event made counts double. Assertions now explicitly count the original
+  `visit.assigned` event, retaining exactly-once checks. Full suite then passed.
+- New browser harness initially hit API-client DNS resolution of wildcard localhost;
+  the check now runs through Chrome. Later guest fixture failures came from a
+  frozen clock preceding event creation and a too-short token; explicit synthetic
+  timestamps and a schema-valid generated token fixed the harness. Final suite
+  passes all four flows. No product authorization/validation was weakened.
+
+### Not implemented / remaining risks and gates
+
+- No Sessions 4–6 reports/audit UI, accessibility/performance campaign, deployment,
+  backup/restore work, historical reminder backfill or locale-selection screen.
+- Legacy owner/invitation/reset email events retain their prior unprocessed safe
+  ownership. Templates exist for their matrix codes, but this is not a claim of
+  legacy capability delivery integration. No late-visit detector added. Initial
+  receipt/request-access email retains its dedicated pipeline, avoiding duplicates.
+- Live email provider/domain, private S3 and jurisdictional launch validation stay
+  open owner gates. Capture adapters are synthetic evidence only. No delegated
+  install/download is pending; no compliance or MVP-complete claim is made.
+- Earlier local historical applied-migration checksum caveat remains unresolved;
+  clean schema diff/status does not repair that history. External email cannot
+  guarantee exactly-once universally or recall an already-sent message.
+
+### Next-session handoff
+
+After owner review/push request and merge, Session 4 starts from current main and
+implements only tenant-scoped reports/reconciliation and append-only safe audit
+views. Preserve notification generation/version checks and current authorization.
+Do not consume legacy capability payloads or treat capture evidence as live email.
+ADRs/D01–D23 stay locked; external launch gates remain open.

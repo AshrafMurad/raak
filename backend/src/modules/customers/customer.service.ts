@@ -121,7 +121,7 @@ export function createCustomerService(db: DatabaseClient, now: () => Date, encry
         });
         if (existing) return;
         const customer = await tx.customerAccount.create({
-          data: { tenantId, emailNormalized: input.email, passwordHash },
+          data: { tenantId, emailNormalized: input.email, passwordHash, notificationLocale: input.locale },
         });
         await issue(tx, tenantId, customer.id, input.email, input.locale);
         await appendAudit(tx, {

@@ -17,9 +17,11 @@ import {
   ReassignVisitSchema,
 } from '../../contracts/careplans';
 import { SchedulingEvents } from '../../contracts/events';
+import { NotificationEvents } from '../../contracts/notifications';
 import type { AuthState } from '../auth/guards';
 import { agencyAction, missing } from '../common/agency-action';
 import { recordChange } from '../common/record-change';
+import { replaceVisitReminders } from '../notifications/reminders';
 import {
   lockAssignableCarePlanForVisit,
   lockCarePlanForVisit,
@@ -75,6 +77,7 @@ async function commitAssignment(
   tenantId: string,
   input: AssignmentItem,
   mode: 'assign' | 'reassign',
+  now: () => Date,
 ): Promise<AssignmentResult> {
   // Plan-backed new assignment locks tenant -> care plan -> visit -> caregiver
   // (ADR-0012): the parent-plan recheck happens after the plan lock so a
@@ -151,6 +154,9 @@ async function commitAssignment(
     { caregiverId: input.caregiverId, reassignment: mode === 'reassign' },
     input.reason,
   );
+  await replaceVisitReminders(tx, tenantId, visit.id, now());
+  await tx.outboxEvent.create({ data: { tenantId, aggregateId: visit.id,
+    eventType: mode === 'assign' ? NotificationEvents.VISIT_CONFIRMED : NotificationEvents.VISIT_CHANGED, payloadMinimal: {} } });
   return {
     visitId: updated.id,
     status: updated.status,
@@ -185,7 +191,7 @@ export function createAssignmentService(db: DatabaseClient, now: () => Date) {
   const assignOne = (auth: AuthState, input: AssignmentItem, mode: 'assign' | 'reassign') =>
     db.$transaction(async (tx) => {
       const tenantId = await agencyAction(tx, auth, 'scheduling.manage');
-      return commitAssignment(tx, auth, tenantId, input, mode);
+      return commitAssignment(tx, auth, tenantId, input, mode, now);
     });
 
   return {
@@ -208,7 +214,7 @@ export function createAssignmentService(db: DatabaseClient, now: () => Date) {
             throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'Key already used for another action.');
           return prior.responseSummary;
         }
-        const result = await commitAssignment(tx, auth, tenantId, input, 'assign');
+        const result = await commitAssignment(tx, auth, tenantId, input, 'assign', now);
         await tx.idempotencyKey.create({
           data: {
             tenantId,
@@ -263,6 +269,7 @@ export function createAssignmentService(db: DatabaseClient, now: () => Date) {
                 tenantId,
                 { ...item, reason: input.reason },
                 'assign',
+                now,
               );
               results.push({ ...result, ok: true });
               // Assignment, history, audit/outbox and checkpoint commit together.

@@ -567,6 +567,7 @@ try {
     await db.visitChangeRequest.deleteMany({ where: { tenantId } });
     await db.visitAssignmentHistory.deleteMany({ where: { tenantId } });
     await db.visitTask.deleteMany({ where: { tenantId } });
+    await db.visitReminder.deleteMany({ where: { tenantId } });
     await db.visit.deleteMany({ where: { tenantId } });
     await db.patientAccess.deleteMany({ where: { tenantId } });
     await db.patient.deleteMany({ where: { tenantId } });

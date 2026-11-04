@@ -12,6 +12,7 @@ import { loadWorkerEnv } from './env';
 import { QUEUES } from './queues';
 import { workerHealthHandler } from './health';
 import { startNotifications } from './notifications';
+import { renderNotification, tenantNotificationUrl } from '../modules/notifications/templates';
 
 const env = loadWorkerEnv();
 const logger = createLogger({ service: 'worker', level: parseLogLevel(env.LOG_LEVEL) });
@@ -79,9 +80,12 @@ if (!emailConfigured)
 const notifications = startNotifications({ db: getPrisma(), connection, now: () => new Date(),
   onError: () => logger.warn('notification dispatch unavailable', { code: 'NOTIFICATION_DISPATCH_FAILED' }),
   ...(emailConfigured ? { send: resendSender(env.EMAIL_API_KEY!, env.EMAIL_FROM!) } : {}),
+  ...(env.BASE_DOMAIN ? { render: (event, context) => context ? renderNotification(event, {
+    ...context, url: tenantNotificationUrl({ baseDomain: env.BASE_DOMAIN!, slug: context.slug, locale: context.locale,
+      path: context.path, production: env.NODE_ENV === 'production',
+      ...(env.PORTAL_PORT ? { port: env.PORTAL_PORT } : env.NODE_ENV === 'production' ? {} : { port: 3000 }) }),
+  }) : null } : {}),
 });
-// Session 3 registers business renderers. Unsupported/legacy event kinds retain
-// their existing ownership; absent renderers leave email deliveries pending.
 
 const healthServer = http.createServer((req, res) => {
   void workerHealthHandler({

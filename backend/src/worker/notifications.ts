@@ -26,14 +26,15 @@ export function startNotifications(deps: {
   let deliveryCursor: string | undefined;
   async function tick() {
     const events = await deps.db.outboxEvent.findMany({ where: { processedAt: null,
-      eventType: { in: [...DISPATCH_EVENT_KINDS] }, tenantId: { not: null },
+      eventType: { in: [...DISPATCH_EVENT_KINDS] }, tenantId: { not: null }, createdAt: { lte: deps.now() },
       ...(cursor ? { id: { gt: cursor } } : {}) }, orderBy: { id: 'asc' }, take: 100, select: { id: true, tenantId: true } });
     cursor = events.at(-1)?.id;
     // Failed/suspended aggregates do not prevent later events in the batch.
     for (const event of events) {
       try { await dispatchNotificationEvent(deps.db, event.id, deps.now); } catch { deps.onError(); }
     }
-    if (!deps.render || !deps.send) return;
+    // Run durable dependency checks too: missing provider/template updates safe
+    // metadata and defers a minute without consuming a delivery attempt.
     const deliveries = await deps.db.notificationDelivery.findMany({ where: {
       status: { in: ['PENDING', 'SENDING'] }, retryAt: { lte: deps.now() },
       ...(deliveryCursor ? { id: { gt: deliveryCursor } } : {}),

@@ -661,6 +661,7 @@ try {
   if (tenantId) {
     await db.visitAssignmentHistory.deleteMany({ where: { tenantId } });
     await db.visitTask.deleteMany({ where: { tenantId } });
+    await db.visitReminder.deleteMany({ where: { tenantId } });
     await db.visit.deleteMany({ where: { tenantId } });
     await db.carePlanVersion.deleteMany({ where: { tenantId } });
     await db.carePlan.deleteMany({ where: { tenantId } });

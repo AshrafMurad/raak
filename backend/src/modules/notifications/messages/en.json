@@ -1,0 +1,20 @@
+{
+  "cta": "Sign in or verify access securely to view the update.",
+  "REQUEST_RECEIVED": "Your request was received. No appointment is confirmed.",
+  "REQUEST_NEW": "A new request is available for review.",
+  "REQUEST_NEEDS_INFO": "Your request needs more information.",
+  "QUOTE_SENT": "An offer is ready for your review.",
+  "QUOTE_RESPONSE": "An offer response is available.",
+  "QUOTE_REVISION_REQUESTED": "An offer revision needs review.",
+  "QUOTE_REVISION_SENT": "An updated offer is ready for your review.",
+  "VISIT_CONFIRMED": "Your appointment is confirmed.",
+  "VISIT_CHANGED": "Your appointment has been updated.",
+  "VISIT_CANCELLED": "Your appointment has been cancelled.",
+  "VISIT_ASSIGNED": "An appointment has been assigned to you.",
+  "VISIT_REMINDER": "Appointment reminder",
+  "VISIT_LATE_FLAGGED": "An appointment needs attention.",
+  "VISIT_NEEDS_REVIEW": "An appointment needs review.",
+  "CAREGIVER_EXCEPTION": "Team availability has been updated.",
+  "STAFF_INVITATION": "You have been invited to join a workspace.",
+  "SECURITY_VERIFICATION": "Verify secure access to your account or request."
+}

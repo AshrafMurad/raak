@@ -168,3 +168,12 @@ Implement `hasPatientGrant` with tenant-scoped, non-revoked, non-expired grants 
 - Personal optional channel opt-outs cannot disable essential cells or re-enable
   tenant-disabled cells. Agency policy settings retain Owner/Admin write and
   Owner/Admin/Coordinator read authority and their independent optimistic version.
+
+### Session 3 delivery audience extension
+
+`VERIFIED_GUEST` exists only as a delivery-policy principal. Central authorize
+permits only `notifications.receive_email` on ACTIVE tenants, with an additional
+same-request consumed email proof matching the current requester email hash.
+It grants no session, inbox, request read or patient authority; CTA entry still
+uses the existing guest verification flow. Notification locale updates are self-
+scoped by the existing live account/preferences authorization and CSRF boundary.

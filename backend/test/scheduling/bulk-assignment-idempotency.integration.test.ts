@@ -287,6 +287,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.visitAssignmentHistory.deleteMany({ where: { tenantId } });
   await db.visitTask.deleteMany({ where: { tenantId } });
+  await db.visitReminder.deleteMany({ where: { tenantId } });
   await db.visit.deleteMany({ where: { tenantId } });
   await db.carePlanVersion.deleteMany({ where: { tenantId } });
   await db.carePlan.deleteMany({ where: { tenantId } });
@@ -346,7 +347,7 @@ it('concurrent same-key bulk requests execute each visit at most once', async ()
   expect(
     await db.visitAssignmentHistory.count({ where: { tenantId, visitId: { in: visitIds } } }),
   ).toBe(6);
-  expect(await db.outboxEvent.count({ where: { tenantId, aggregateId: { in: visitIds } } })).toBe(
+  expect(await db.outboxEvent.count({ where: { tenantId, eventType: 'visit.assigned', aggregateId: { in: visitIds } } })).toBe(
     6,
   );
   const stored = await db.idempotencyKey.findUniqueOrThrow({
@@ -370,7 +371,7 @@ it('a replay of a completed bulk returns the stored result without re-executing'
   expect(
     await db.visitAssignmentHistory.count({ where: { tenantId, visitId: { in: visitIds } } }),
   ).toBe(2);
-  expect(await db.outboxEvent.count({ where: { tenantId, aggregateId: { in: visitIds } } })).toBe(
+  expect(await db.outboxEvent.count({ where: { tenantId, eventType: 'visit.assigned', aggregateId: { in: visitIds } } })).toBe(
     2,
   );
 });
@@ -549,7 +550,7 @@ it('an interrupted run resumes unfinished visits without rerunning completed one
   // Resumed item: executed exactly once with its full side effects.
   expect(await db.visitAssignmentHistory.count({ where: { tenantId, visitId: todo!.id } })).toBe(1);
   expect(await db.auditEvent.count({ where: { tenantId, subjectId: todo!.id } })).toBe(1);
-  expect(await db.outboxEvent.count({ where: { tenantId, aggregateId: todo!.id } })).toBe(1);
+  expect(await db.outboxEvent.count({ where: { tenantId, eventType: 'visit.assigned', aggregateId: todo!.id } })).toBe(1);
   const stored = await db.idempotencyKey.findUniqueOrThrow({
     where: { tenantId_principalId_key: { tenantId, principalId: `staff:${ownerId}`, key } },
   });

@@ -22,6 +22,7 @@
     "test:browser:sprint5": "tsx test/browser/sprint5.e2e.ts",
     "test:browser:sprint6": "tsx test/browser/sprint6.e2e.ts",
     "test:browser:sprint7-inbox": "tsx test/browser/sprint7-inbox.e2e.ts",
+    "test:browser:sprint7-templates": "tsx test/browser/sprint7-templates.e2e.ts",
     "postinstall": "prisma generate",
     "generate": "prisma generate",
     "migrate": "prisma migrate deploy",

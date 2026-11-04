@@ -209,6 +209,7 @@ afterAll(async () => {
   for (const id of [tenantId, tenantB].filter(Boolean)) {
     await db.visitAssignmentHistory.deleteMany({ where: { tenantId: id } });
     await db.visitTask.deleteMany({ where: { tenantId: id } });
+    await db.visitReminder.deleteMany({ where: { tenantId: id } });
     await db.visit.deleteMany({ where: { tenantId: id } });
     await db.carePlanVersion.deleteMany({ where: { tenantId: id } });
     await db.carePlan.deleteMany({ where: { tenantId: id } });
