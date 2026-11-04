@@ -200,6 +200,7 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
       try {
         const me = await apiRequest<{
           principalType: 'PLATFORM_OPERATOR' | 'AGENCY_STAFF' | 'AGENCY_CUSTOMER';
+          role?: string;
         }>(
           '/auth/login',
           { method: 'POST', body: JSON.stringify({ email, password }) },
@@ -210,7 +211,9 @@ export function LoginForm({ locale, copy }: { locale: Locale; copy: AuthCopy }) 
             ? 'platform/tenants'
             : me.principalType === 'AGENCY_CUSTOMER'
               ? 'account'
-              : 'workspace/requests';
+              : me.role === 'CAREGIVER'
+                ? 'caregiver/visits'
+                : 'workspace/requests';
         router.replace(`/${locale}/${destination}`);
       } catch {
         setError(copy.validation.request);

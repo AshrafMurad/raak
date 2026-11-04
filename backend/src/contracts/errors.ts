@@ -30,6 +30,8 @@ export const ERROR_CODES = [
   'IDEMPOTENCY_CONFLICT',
   'IDEMPOTENCY_IN_PROGRESS',
   'VERSION_CONFLICT',
+  'CHANGE_CUTOFF_EXCEEDED',
+  'CHANGE_REQUEST_PENDING',
 ] as const;
 
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

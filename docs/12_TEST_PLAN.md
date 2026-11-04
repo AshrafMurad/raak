@@ -90,6 +90,12 @@
   qualification/availability and race/denial coverage. ADR-0011's correction of
   the Sprint 4 exit's I12 reference was owner-approved on 2026-11-02. I12 retains
   its original Sprint 6 visit-change meaning and is not claimed here.
+- **Sprint 6 evidence:** E06/E07 in AR/EN through installed Chrome, I12/I13/I14,
+  I17, U13 and visit/change object-by-ID I01 are demonstrated in
+  `plans/sprint-06-status.md`. Real concurrent note/completion and start/change
+  decisions, revoked grants, wrong caregivers, conflict rollback and immutable
+  snapshot checks are included. Private-S3/live-email and general delivery gates
+  remain externally open/Sprint 7-owned.
 
 ## E2E journeys — Playwright
 **E01 Agency registration:** fill form -> verify -> pending -> operator activates -> configure brand/services -> portal visible.

@@ -117,6 +117,11 @@ owner-deferred/open; this correction does not close those gates.
 - Mobile caregiver tasks, server timestamps, notes, completion, post-completion review/correction.
 - Customer change-request policy config, late classification, coordinator approve/decline, timezone and conflict rechecks.
 - **Exit:** E06/E07 and I13/I17 pass.
+- **Status:** implemented and locally demonstrated; E06/E07 AR/EN mobile browser,
+  I12/I13/I14/I17, U13 and visit I01 denial/race/history evidence are recorded in
+  `plans/sprint-06-status.md`. Backend/frontend required checks and migration replay
+  pass. Private-S3/live-email and general notification/reporting/launch gates remain
+  open for their owners/Sprint 7.
 
 ### Sprint 7 — Operational quality and launch prep
 

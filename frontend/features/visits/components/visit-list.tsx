@@ -163,6 +163,9 @@ export function VisitList({
                       <StatusBadge tone={visitStatusTone(visit.status)}>
                         {c.states[visit.status]}
                       </StatusBadge>
+                      {visit.reviewStatus === 'NEEDS_REVIEW' ? (
+                        <StatusBadge tone="in_progress">{c.review.states.NEEDS_REVIEW}</StatusBadge>
+                      ) : null}
                     </td>
                     <td>
                       <StatusBadge tone={visitStatusTone(visit.assignmentHealth)}>

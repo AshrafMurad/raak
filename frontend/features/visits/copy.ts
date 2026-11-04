@@ -29,10 +29,4 @@ export function localizedVisitService(
   return locale === 'ar' ? value.nameAr : value.nameEn;
 }
 
-export function formatVisitDateTime(value: string, locale: Locale, timezone?: string): string {
-  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-SA' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    ...(timezone ? { timeZone: timezone } : {}),
-  }).format(new Date(value));
-}
+export { formatDateTime as formatVisitDateTime } from '../../lib/date-time';

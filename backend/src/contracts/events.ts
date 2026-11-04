@@ -21,6 +21,23 @@ export const SchedulingEvents = {
   REASSIGNMENT_RESOLVED: 'visit.reassignment_resolved',
 } as const;
 
+/** Sprint 6 visit-execution and change-request events (docs 04 BR-VST/BR-CHG,
+ * docs 11). Payloads carry resource IDs only. */
+export const VisitEvents = {
+  TASK_UPDATED: 'visit.task_updated',
+  DRAFT_SAVED: 'visit.draft_saved',
+  STARTED: 'visit.started',
+  COMPLETED: 'visit.completed',
+  NEEDS_REVIEW: 'visit.needs_review',
+  REVIEWED: 'visit.reviewed',
+  CORRECTED: 'visit.corrected',
+  CHANGE_REQUESTED: 'visit.change_requested',
+  CHANGE_APPROVED: 'visit.change_approved',
+  CHANGE_REJECTED: 'visit.change_rejected',
+  CHANGE_WITHDRAWN: 'visit.change_withdrawn',
+  SETTINGS_UPDATED: 'agency.scheduling_settings_updated',
+} as const;
+
 export const RequestEvents = {
   ACCESS_EMAIL: 'email.request_access',
   SUBMITTED: 'request.new',

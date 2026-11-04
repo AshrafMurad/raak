@@ -14,6 +14,7 @@ import { getPrisma, disconnectPrisma } from '../src/db/client';
 import { hashPassword } from '../src/modules/auth/crypto';
 import { seedPeople } from './seed-people';
 import { seedScheduling } from './seed-scheduling';
+import { seedVisits } from './seed-visits';
 
 const TENANT_AFIYA_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ALNADWA_ID = '22222222-2222-4222-8222-222222222222';
@@ -203,6 +204,7 @@ async function main() {
     passwordHash,
   });
   await seedScheduling(prisma, { tenantA: TENANT_AFIYA_ID, reviewerId: afiyaOwner.id });
+  await seedVisits(prisma, { tenantA: TENANT_AFIYA_ID });
   const [tenants, operators, staff, customers, invitations, patients, grants, caregivers] =
     await Promise.all([
       prisma.tenant.count(),

@@ -242,3 +242,37 @@ ranking and impact scans are read-only server computations over these tables;
 `prisma/seed-scheduling.ts` adds a create-only synthetic recurring service,
 full-week availability, one activated synthetic plan and three PLANNED visits
 (one intentionally overlapping the seeded synthetic leave date).
+
+## Implemented Sprint 6 persistence
+
+Additive migrations `20261104100000_sprint6_visit_execution_changes` and
+`20261104110000_sprint6_completion_integrity` add:
+
+- Tenant scheduling policy: separate cancel/reschedule cutoff hours (default 24,
+  bounded 0–168), allowLateReview (default true), settingsVersion (initially 0).
+  Database bounds also protect travel buffer 0–120.
+- VisitNote: tenant-consistent visit/author references, restricted body,
+  isDraft/isAddendum, optional same-tenant parent note, reason and finalization
+  timestamps. One draft per tenant/visit/author via a partial unique index.
+  Finalized notes cannot UPDATE; corrections insert addenda referencing an exact
+  finalized same-visit parent after service validation.
+- VisitChangeRequest: same-tenant visit and verified customer references,
+  CANCEL/RESCHEDULE, PENDING/APPROVED/REJECTED/WITHDRAWN, NORMAL/LATE, proposed UTC
+  start, restricted reason, immutable policy/original-window/timezone/duration
+  snapshot, decision staff/time/reason and withdrawal time. Partial unique enforces
+  one PENDING request per tenant/visit. Composite decision-staff FKs preserve
+  tenant integrity; no guest/request ownership shortcut exists.
+- Visit.completionSnapshotJson: server start/end, task description/required/outcome/
+  reason and finalized note body/author references frozen at completion. DB UPDATE
+  guards prevent changes to completed execution and tasks while allowing review
+  status/version updates. The snapshot is not part of customer summaries or audit.
+- VisitReview: separate same-tenant visit/reviewer, restricted optional review
+  note and creation time, unique per tenant/visit. Review never changes completed
+  state or the original documentation. Corrections have their own append-only rows.
+
+Task/note changes increment visit versions and append audit/outbox. Completion and
+agency decisions reuse principal/action/payload-bound IdempotencyKey rows with safe
+result summaries. No historical migration was edited. `seed-visits.ts` adds one
+create-only synthetic confirmed standalone visit and task snapshots. On fresh seeds,
+patient one's initial synthetic grant includes VIEW_VISITS/MANAGE_VISITS; reruns do
+not overwrite existing grants, including operator revocations/edits.

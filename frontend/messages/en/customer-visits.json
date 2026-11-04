@@ -1,0 +1,58 @@
+{
+  "myVisits": "My visits",
+  "intro": "Confirmed and completed visits for your authorized patients.",
+  "open": "Open visit",
+  "close": "Close",
+  "loading": "Loading…",
+  "empty": "No visits for your authorized patients in this period.",
+  "error": "This action could not be completed. No success has been assumed.",
+  "denied": "You cannot access this visit with your current permissions.",
+  "stale": "This visit changed. Refresh before retrying.",
+  "validation": "Review the required fields and the proposed time.",
+  "saved": "The server confirmed this change.",
+  "savedRefreshFailed": "The server confirmed the change, but the latest view could not be loaded. Refresh before another change.",
+  "patient": "Patient",
+  "service": "Service",
+  "scheduledWindow": "Scheduled window",
+  "status": "Status",
+  "pendingChange": "A change request is pending review",
+  "pendingChangeType": {
+    "CANCEL": "Cancellation request",
+    "RESCHEDULE": "Reschedule request"
+  },
+  "requestChange": "Request a change",
+  "requestCancel": "Request cancellation",
+  "requestReschedule": "Request reschedule",
+  "changeType": "Change type",
+  "proposedDate": "Proposed date",
+  "proposedTime": "Proposed time (agency local time)",
+  "reason": "Reason",
+  "reasonHelp": "Shared with the agency coordinator reviewing your request.",
+  "submitRequest": "Submit request",
+  "changeRequests": "My change requests",
+  "noChangeRequests": "No change requests yet.",
+  "withdraw": "Withdraw request",
+  "urgency": {
+    "NORMAL": "Standard review",
+    "LATE": "Late request — priority review"
+  },
+  "changeStatus": {
+    "PENDING": "Pending review",
+    "APPROVED": "Approved",
+    "REJECTED": "Declined",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "proposedNewTime": "Proposed new time",
+  "decisionReason": "Agency response",
+  "changePending": "This visit already has a pending change request.",
+  "cutoffExceeded": "The change deadline has passed. Please contact the agency directly.",
+  "originalNote": "The current appointment stays unchanged until the agency approves your request.",
+  "notChangeable": "Changes apply to confirmed future visits only.",
+  "states": {
+    "SCHEDULED": "Scheduled / confirmed",
+    "IN_PROGRESS": "In progress",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "refresh": "Refresh"
+}

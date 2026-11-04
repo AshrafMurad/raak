@@ -8,17 +8,17 @@
  */
 import type { DatabaseClient } from '../../db/client';
 import type { Prisma } from '../../db/generated/prisma/client';
-import { ApiError } from '../../api-error';
 import type { VisitListQuery } from '../../contracts/careplans';
 import type { AuthState } from '../auth/guards';
 import { agencyAction, missing } from '../common/agency-action';
-import { localToUtc } from '../common/local-time';
+import { visitDateWindow } from '../common/visit-date-window';
 
 /** Visit list projection (docs 07): safe operational fields only. */
 export interface VisitListItem {
   id: string;
   status: string;
   assignmentHealth: string;
+  reviewStatus: string;
   scheduledStartUtc: Date;
   scheduledEndUtc: Date;
   timezoneSnapshot: string;
@@ -42,6 +42,7 @@ export interface VisitTaskProjection {
   descriptionSnapshot: string;
   isRequired: boolean;
   outcome: string;
+  notDoneReason: string | null;
 }
 
 export interface VisitAssignmentHistoryEntry {
@@ -59,6 +60,8 @@ export interface VisitDetail {
   status: string;
   assignmentHealth: string;
   reviewStatus: string;
+  actualStartAt: Date | null;
+  actualEndAt: Date | null;
   scheduledStartUtc: Date;
   scheduledEndUtc: Date;
   timezoneSnapshot: string;
@@ -97,10 +100,6 @@ export function createVisitQueries(db: DatabaseClient): VisitQueries {
           select: { timezone: true, travelBufferMin: true },
         });
         // Window bounds are local calendar days resolved in the tenant zone.
-        const from = query.from ? localToUtc(query.from, '00:00', tenant.timezone) : null;
-        const to = query.to ? localToUtc(query.to, '23:59', tenant.timezone) : null;
-        if ((from && from.status !== 'UNIQUE') || (to && to.status !== 'UNIQUE'))
-          throw new ApiError(422, 'VALIDATION_FAILED', 'Invalid date window.');
         const rows = await tx.visit.findMany({
           where: {
             tenantId,
@@ -109,14 +108,14 @@ export function createVisitQueries(db: DatabaseClient): VisitQueries {
             ...(query.carePlanId ? { carePlanId: query.carePlanId } : {}),
             ...(query.patientId ? { patientId: query.patientId } : {}),
             ...(query.caregiverId ? { assignedCaregiverId: query.caregiverId } : {}),
-            ...(from?.status === 'UNIQUE' ? { scheduledStartUtc: { gte: from.instant } } : {}),
-            ...(to?.status === 'UNIQUE' ? { scheduledStartUtc: { lte: to.instant } } : {}),
+            scheduledStartUtc: visitDateWindow(query, tenant.timezone),
             ...(query.cursor ? { id: { gt: query.cursor } } : {}),
           },
           select: {
             id: true,
             status: true,
             assignmentHealth: true,
+            reviewStatus: true,
             scheduledStartUtc: true,
             scheduledEndUtc: true,
             timezoneSnapshot: true,
@@ -147,6 +146,8 @@ export function createVisitQueries(db: DatabaseClient): VisitQueries {
             status: true,
             assignmentHealth: true,
             reviewStatus: true,
+            actualStartAt: true,
+            actualEndAt: true,
             scheduledStartUtc: true,
             scheduledEndUtc: true,
             timezoneSnapshot: true,
@@ -166,6 +167,7 @@ export function createVisitQueries(db: DatabaseClient): VisitQueries {
                 descriptionSnapshot: true,
                 isRequired: true,
                 outcome: true,
+                notDoneReason: true,
               },
               orderBy: { order: 'asc' },
             },
