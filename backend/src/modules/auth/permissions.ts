@@ -42,6 +42,8 @@ export const PERMISSION_ACTIONS = [
   'notifications.deliveries.read',
   'notifications.receive',
   'notifications.receive_email',
+  'reports.read',
+  'agency.audit.read',
 ] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
@@ -72,7 +74,9 @@ export function authorize(
 ): AuthzDecision {
   if (!principal) return { allowed: false };
   if (principal.principalType === 'VERIFIED_GUEST')
-    return { allowed: principal.tenantStatus === 'ACTIVE' && action === 'notifications.receive_email' };
+    return {
+      allowed: principal.tenantStatus === 'ACTIVE' && action === 'notifications.receive_email',
+    };
 
   if (principal.principalType === 'PLATFORM_OPERATOR') {
     return { allowed: PLATFORM_ACTIONS.has(action) };
@@ -99,6 +103,7 @@ export function authorize(
           'visits.review',
           'agency.settings.read',
           'notifications.policy.read',
+          'reports.read',
         ].includes(action)
       )
         return { allowed: admin || principal.role === 'CARE_COORDINATOR' };
@@ -109,12 +114,15 @@ export function authorize(
         action === 'caregivers.verify' ||
         action === 'agency.settings.manage' ||
         action === 'notifications.policy.manage' ||
-        action === 'notifications.deliveries.read'
+        action === 'notifications.deliveries.read' ||
+        action === 'agency.audit.read'
       )
         return { allowed: admin };
       if (action === 'caregivers.self_read') return { allowed: principal.role === 'CAREGIVER' };
       if (action === 'notifications.receive')
-        return { allowed: admin || principal.role === 'CARE_COORDINATOR' || principal.role === 'CAREGIVER' };
+        return {
+          allowed: admin || principal.role === 'CARE_COORDINATOR' || principal.role === 'CAREGIVER',
+        };
       // Sprint 6 caregiver execution audience gate: the visits service must
       // additionally verify the visit is assigned to the caller's own
       // caregiver profile (deny by default; never a role-only grant).

@@ -1,0 +1,41 @@
+/* Reports and audit surfaces reuse shared tokens; these layout-only helpers
+   keep aggregate cards, filter rows and tables legible in RTL and LTR. */
+.raak-report-table {
+  min-width: 640px;
+}
+.rv-report-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rv-report-heading h2 {
+  margin: 0;
+}
+.rv-total {
+  font-size: 14px;
+}
+.rv-total strong {
+  font-variant-numeric: tabular-nums;
+}
+.rv-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-block: 8px;
+}
+.rv-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--rv-border);
+  border-radius: var(--rv-control-radius);
+  padding: 8px 10px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.rv-stat strong {
+  font-variant-numeric: tabular-nums;
+}

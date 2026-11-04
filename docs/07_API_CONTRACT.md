@@ -763,6 +763,73 @@ remains Sprint 7. See ADR-0013 and `plans/sprint-06-status.md` for evidence/gate
 | GET | `/agency/reports/requests` | Tenant-scoped request funnel |
 | GET | `/agency/reports/caregivers` | Tenant-scoped loads (operational, not clinical judgment) |
 
+### Sprint 7 Session 4 — operational reports and agency audit views
+
+All paths below are under `/v1`; GET responses are `Cache-Control: no-store`.
+Agency reads require an ACTIVE host-resolved tenant, current staff session and
+central policy at HTTP and transactional live-principal boundaries. No tenant
+input is accepted. Strict DTOs live in `contracts/reports.ts`; unknown parameters,
+invalid dates/statuses/cursors or reversed date windows return 422
+`VALIDATION_FAILED`. A valid UUID `serviceId` must resolve inside the tenant;
+foreign/missing service filters return generic 404 `RESOURCE_NOT_FOUND` (I02).
+
+Reports require `reports.read` (Owner/Admin/Coordinator). Filters: optional
+`from,to` inclusive ISO local dates, optional `serviceId`, optional `status`
+(RequestStatus for requests; VisitStatus for visits/caregivers). Omitted date
+bounds are open. Dates use the current agency timezone: requests are selected
+by `submittedAt`; visits/load by `scheduledStartUtc` in a half-open UTC window
+from local start-of-from-day through start-of-day-after-to. Every aggregate is
+computed over the filtered set, including a selected status. These are current
+status distributions, not cumulative historical funnel transitions.
+
+Each report echoes `{timezone,from,to,status,serviceId}` (absent filters null):
+
+- GET `/agency/reports/requests`: `{total,byStatus,byService,byServiceTruncated}`.
+  `byStatus` has all six request status codes with integer counts including zeros;
+  its sum equals total. `byService` projects `{serviceId,slug,nameAr,nameEn,count}`
+  with nullable names, ordered count descending/id ascending, max 100 plus explicit
+  truncation flag. Total/status counts always cover the full filtered set even if
+  the service breakdown is truncated. Labels use current service config, without
+  rewriting request snapshots.
+- GET `/agency/reports/visits`: `{total,byStatus,unassigned,timeliness}`.
+  `byStatus` has all six visit statuses; sum equals total. `unassigned` counts
+  every filtered row with null assignedCaregiverId (not only PLANNED).
+  `timeliness:{started,onTime,late,notStarted}`: started has non-null
+  actualStartAt; onTime means actualStartAt <= scheduledStartUtc; late means >;
+  notStarted = total - started. No grace period or physical-presence inference.
+  Optional on-time percentage can be derived as onTime/started only when started
+  > 0; no percentage is returned for an empty denominator. Cancelled/missed rows
+  with no actual start contribute only to notStarted and their status counts.
+- GET `/agency/reports/caregivers`: `{items,truncated}`. Rows only for currently
+  assigned caregivers with visits in the filtered set, projected as
+  `{caregiverId,name,operationalStatus,scheduledMinutes,byStatus}`. Minutes sum
+  scheduledEndUtc - scheduledStartUtc for all filtered assigned visits except
+  CANCELLED, rounded to whole minutes once per caregiver; this is planned workload,
+  not actual work duration or clinical performance. All six visit status counts
+  are retained, including CANCELLED. Rows sort minutes descending/id ascending,
+  max 200 plus truncation flag. Current assignment is used, not assignment history.
+
+GET `/agency/audit?limit=20&cursor=` requires `agency.audit.read` (Owner/Admin).
+Limit 1–100; opaque cursor is an ISO UTC timestamp plus `~` plus UUID, sorted
+`at DESC,id DESC`, with strict timestamp/UUID validation. Result:
+`{timezone,items:[{id,at,actorType,actorId,action,subjectType,subjectId,reason}],nextCursor}`.
+Actor fields, subjectId and reason may be null; `at` is UTC ISO. The view includes
+only this tenant's append-only rows and excludes metadataJson entirely. Reasons
+are agency-restricted justification fields, never copies of visit note bodies.
+There are no audit update/delete endpoints. A cursor is a page boundary, never an
+authorization capability; queries retain the tenant predicate on every page.
+
+Platform GET `/platform/tenants/:tenantId` adds
+`reportTotals:{requests:{[status]:count},visits:{[status]:count}}`, all-time counts
+for present status groups only (absent status means zero). It adds no row,
+patient, service or caregiver projection and grants no agency report access.
+Existing `/platform/audit` retains its operator-action projection.
+
+Workspace routes: `/{locale}/workspace/reports` (URL-backed date/service/request
+status/visit status filters; visit status also filters caregiver load) and
+`/{locale}/workspace/audit` (URL-backed cursor). Both locales use shared UI.
+See ADR-0017 and `plans/sprint-07-reports-audit.md`.
+
 ### Sprint 7 Session 1 — notification policy and delivery observability
 
 All routes below require the host-resolved ACTIVE tenant, current staff session,

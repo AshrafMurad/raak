@@ -110,6 +110,12 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         orderBy: { createdAt: 'asc' },
       });
       const counts = await countsFor([tenantId]);
+      // Session 4: operator visibility stays "totals only" (docs 05) — all-time
+      // status aggregates, never filterable rows or agency-host report access.
+      const [requestStatuses, visitStatuses] = await Promise.all([
+        db.serviceRequest.groupBy({ by: ['status'], where: { tenantId }, _count: { _all: true } }),
+        db.visit.groupBy({ by: ['status'], where: { tenantId }, _count: { _all: true } }),
+      ]);
       return {
         tenantId: tenant.id,
         slug: tenant.slug,
@@ -122,6 +128,10 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         createdAt: tenant.createdAt.toISOString(),
         ownerEmail: owner?.emailNormalized ?? null,
         counts: counts(tenantId),
+        reportTotals: {
+          requests: Object.fromEntries(requestStatuses.map((r) => [r.status, r._count._all])),
+          visits: Object.fromEntries(visitStatuses.map((r) => [r.status, r._count._all])),
+        },
       };
     },
 

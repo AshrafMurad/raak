@@ -9,6 +9,8 @@
   "carePlans": "Care plans",
   "visits": "Visits",
   "changes": "Change requests",
+  "reports": "Reports",
+  "audit": "Audit trail",
   "settings": "Scheduling policy",
   "login": "Sign in",
   "workspace": "Workspace",

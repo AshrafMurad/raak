@@ -153,6 +153,20 @@ applied migration history is preserved.
 | `idempotency_keys` | `id,tenantId,principalId?,key,requestHash,responseSummary,expiresAt` | unique(tenantId,principalId,key), store safe response ref not sensitive body |
 
 ## Required database invariants
+
+### Sprint 7 Session 4 read projections
+
+No schema or migration change. Reports aggregate existing `service_requests`
+and `visits` under explicit tenant predicates; service and caregiver labels come
+from capped, same-tenant projected lookups, never patient joins. Request service
+breakdowns cap at 100; caregiver load rows cap at 200, both with truncation flags.
+Audit reads use the existing `audit_events(tenant_id,at)` index and chronological
+`at DESC,id DESC` keyset pagination; tenant-null platform rows are excluded from
+agency views. Metadata JSON is stored unchanged and omitted from view responses.
+Reads add no mutation, deletion, backfill, outbox event or history rewrite.
+
+### Integrity requirements
+
 1. Scoped composite FKs where possible, plus transaction-time same-tenant checks for polymorphic parents. Avoid unsafe `ON DELETE CASCADE` on audits and medical-operation records.
 2. Functional unique index on `(tenant_id, lower(email))` if case-normalized column not used. Null emails absent only where registration not allowed.
 3. Partial unique: one PENDING quote revision per `(tenant_id,quote_group_id)`; one PENDING visit change request per `(tenant_id,visit_id)`; one SENT effective quote per group.
