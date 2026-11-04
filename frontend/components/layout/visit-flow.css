@@ -1,0 +1,26 @@
+.raak-execution {
+  display: grid;
+  gap: 1rem;
+  min-inline-size: 0;
+}
+.raak-execution p,
+.raak-execution h2,
+.raak-execution h3 {
+  overflow-wrap: anywhere;
+}
+.raak-visit-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+.raak-visit-cards .raak-card {
+  display: grid;
+  gap: 0.75rem;
+}
+.raak-execution .raak-actions {
+  flex-wrap: wrap;
+}
+.raak-execution textarea {
+  min-block-size: 6rem;
+  inline-size: 100%;
+}
