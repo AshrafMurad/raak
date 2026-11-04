@@ -651,8 +651,7 @@ mutations):
   and append audit/outbox events (`visit.reassignment_flagged` /
   `visit.reassignment_resolved`) atomically with the configuration change.
 
-`/caregiver/my/visits`, visit execution, review and change requests remain
-Sprint 6+ specifications.
+Sprint 6 implements the caregiver, review and customer change routes below.
 
 ## Visit change requests
 | Method | Path | Purpose |
@@ -662,6 +661,96 @@ Sprint 6+ specifications.
 | POST | `/agency/visit-change-requests/:id/approve` | Atomic policy/state/conflict validation + mutation |
 | POST | `/agency/visit-change-requests/:id/reject` | Reason required; original retained |
 | POST | `/portal/my/visit-change-requests/:id/withdraw` | Pending only |
+
+### Implemented Sprint 6 — execution, documentation and approved changes
+
+Canonical strict request DTOs: `backend/src/contracts/visits.ts`. Every private
+route requires the host-resolved tenant, live session, central policy and current
+resource relationship; mutations require CSRF. Responses are `no-store`.
+Unknown fields (including tenant, actor, timestamps, urgency and statuses) reject
+with 422. Inaccessible objects are 404; role/action denials are 403.
+
+Caregiver (`visits.self_execute`, CAREGIVER audience plus the exact linked active,
+verified account/profile and current assignment):
+
+- `GET /caregiver/my/visits?from=&to=&status=&cursor=`: 20-row pages of assigned
+  SCHEDULED/IN_PROGRESS/COMPLETED summaries, `timezone,nextCursor`. Inclusive local
+  date bounds are converted to a half-open UTC window including the final minute.
+  `GET /caregiver/my/visits/:id`: minimum patient name, service/window/timezone,
+  status/version, actual server times, task snapshots/outcomes/reasons and the
+  caregiver's own note. No patient file, account data or agency-wide notes.
+- `POST .../:id/start {}`: SCHEDULED → IN_PROGRESS, assignment health must be OK,
+  `actualStartAt` server-owned. Repeating an already-started visit is stable.
+- `PUT .../:id/tasks/:taskId`: `{outcome:"DONE"}` or
+  `{outcome:"NOT_DONE",reason(3..500)}`; IN_PROGRESS only, exact visit/task linkage.
+  `NOT_DONE` with a reason is the canonical NOT_DONE_WITH_REASON representation.
+- `PUT .../:id/note {body(1..5000)}`: the author's one editable IN_PROGRESS draft.
+- `POST .../:id/complete {}` + required Idempotency-Key: every required task must
+  be DONE or NOT_DONE with a reason; optional tasks can remain PENDING. Records
+  server `actualEndAt`, COMPLETED, finalized notes and immutable completion JSON
+  in one transaction. A required NOT_DONE task flags NEEDS_REVIEW. Repeated
+  completion is stable; different payload reuse of an action key is 409.
+
+Agency (`visits.read` for documentation; `visits.review` for Owner/Admin/Coordinator
+review/correction):
+
+- `GET /agency/visits/:id/notes`: explicit restricted note projection, review
+  status and separate review records (reviewer, restricted note, time). Agency visit
+  summaries expose reviewStatus; detail also includes actual
+  timestamps and task exceptions. These projections never go to customers.
+- `POST /agency/visits/:id/review {expectedVersion,note?(1..1000)}`: COMPLETED
+  only; marks separate REVIEWED status and records reviewer/time/restricted review
+  note. Original completion and finalized notes remain unchanged.
+- `POST /agency/visits/:id/corrections
+  {expectedVersion,parentNoteId?:uuid|null,body(1..5000),reason(5..500)}` → 201.
+  Appends a finalized addendum; optional parent must be a finalized note of this
+  exact visit. Author and reason are audited, content is not dumped into audit.
+  Database UPDATE guards also protect original notes, tasks and completion data.
+
+Customer (`visits.customer_change` is an audience gate, never patient authority):
+
+- `GET /portal/my/visits?from=&to=&cursor=` and `GET .../:id` require current
+  VIEW_VISITS grants and return patient/service/window/status summaries and only
+  this customer's change-request history/pending state. CANCELLED summaries remain
+  visible. No caregiver notes, task exceptions, address or completion snapshot.
+- `POST /portal/my/visits/:id/change-requests`: `{type:"CANCEL",reason(10..1000)}`
+  or `{type:"RESCHEDULE",proposedDate:YYYY-MM-DD,proposedTime:HH:mm,reason}`.
+  Requires an explicit active MANAGE_VISITS grant, future SCHEDULED visit and no
+  existing PENDING request. Proposed date/time uses the agency IANA timezone;
+  DST gaps/folds are rejected (422 RECURRENCE_TIME_INVALID). Server classifies
+  NORMAL at/before the cutoff instant and LATE afterwards. Late review disabled
+  returns 409 CHANGE_CUTOFF_EXCEEDED; another pending request returns
+  409 CHANGE_REQUEST_PENDING. The original appointment is never changed here.
+- `POST /portal/my/visit-change-requests/:id/withdraw {}`: own PENDING request
+  and current MANAGE_VISITS grant; changes the request only.
+
+Coordinator (`scheduling.manage`):
+
+- Queue GET supports `status,urgency,cursor`, 20 rows per page; the LATE filter is
+  the priority-review view. Object/resource projections are tenant-scoped.
+- Approve `{}` and reject `{reason(5..500)}` both require Idempotency-Key.
+  Replays return a safe stored summary; changed target/action/reason is
+  409 IDEMPOTENCY_CONFLICT. Reject/withdraw leave the booking untouched.
+- Approval rechecks current verified requester/grant, future SCHEDULED state,
+  original window and policy/timezone. Cancellation records CANCELLED and reason;
+  rescheduling preserves duration/current caregiver and locks tenant → parent plan
+  → visit → caregiver, using existing scheduling hard filters for qualification,
+  service/area, availability/leave and exact travel buffer, plus patient overlap.
+  Conflicts roll back and keep PENDING plus the original window/caregiver/version.
+  Recurrence, occurrence keys and historical care-plan versions are unchanged.
+
+Scheduling policy (`agency.settings.read` Owner/Admin/Coordinator;
+`agency.settings.manage` Owner/Admin): GET `/agency/settings` returns
+`timezone,travelBufferMin,changeCancelCutoffHours,changeRescheduleCutoffHours,
+allowLateReview,settingsVersion`. PATCH takes those policy fields except timezone
+plus `expectedVersion` (initially 0). Buffer integer 0–120; cutoffs integer 0–168
+hours (recommended 6–48, default 24); late review defaults true. A buffer change
+transactionally flags/heals prospective conflicts, never cancels assignments.
+Identity, timezone and currency edits are outside this settings slice.
+
+All writes append safe audit/outbox events atomically; review note/body content is
+stored in restricted documentation, never outbox payloads. Visit event delivery
+remains Sprint 7. See ADR-0013 and `plans/sprint-06-status.md` for evidence/gates.
 
 ## Notifications, documents, reports
 | Method | Path | Purpose |
