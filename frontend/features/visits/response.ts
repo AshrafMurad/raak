@@ -27,6 +27,7 @@ const common = {
   id: text,
   status,
   assignmentHealth: health,
+  reviewStatus: optional(text),
   scheduledStartUtc: text,
   scheduledEndUtc: text,
   timezoneSnapshot: text,
@@ -44,6 +45,8 @@ export const decodeVisitList: Decoder<VisitListResult> = objectOf({
 export const decodeVisitDetail: Decoder<VisitDetailData> = objectOf({
   ...common,
   reviewStatus: text,
+  actualStartAt: optional(nullable(text)),
+  actualEndAt: optional(nullable(text)),
   occurrenceKey: nullable(text),
   cancelledReason: nullable(text),
   cancelledAt: nullable(text),
@@ -56,6 +59,7 @@ export const decodeVisitDetail: Decoder<VisitDetailData> = objectOf({
       descriptionSnapshot: text,
       isRequired: flag,
       outcome: text,
+      notDoneReason: optional(nullable(text)),
     }),
   ),
   assignmentHistory: arrayOf(

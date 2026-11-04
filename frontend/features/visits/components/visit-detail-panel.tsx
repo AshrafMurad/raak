@@ -10,6 +10,7 @@ import { formatVisitDateTime, localizedVisitService, visitCopy } from '../copy';
 import { useVisitDetail } from '../hooks/use-visit-detail';
 import { isValidActionReason, visitActionFor, visitStatusTone } from '../policies';
 import { CandidatePicker } from './candidate-picker';
+import { VisitReviewPanel } from './visit-review-panel';
 
 /** One visit's detail: summary, task snapshot, assignment history and the
  * assign/reassign workflow. The panel renders typed state and semantic
@@ -87,6 +88,10 @@ export function VisitDetailPanel({
             {visit.tasks.map((task) => (
               <li key={task.id}>
                 {task.descriptionSnapshot} · {task.isRequired ? c.required : c.optional}
+                {task.outcome && task.outcome !== 'PENDING'
+                  ? ` · ${c.taskOutcomes[task.outcome as keyof typeof c.taskOutcomes] ?? c.taskOutcomes.PENDING}`
+                  : ''}
+                {task.notDoneReason ? ` · ${task.notDoneReason}` : ''}
               </li>
             ))}
           </ul>
@@ -151,6 +156,16 @@ export function VisitDetailPanel({
             {action === 'assign' ? c.assign : c.reassign}
           </Button>
         </section>
+      ) : null}
+      {visit.status === 'COMPLETED' ? (
+        <VisitReviewPanel
+          visit={visit}
+          locale={locale}
+          onChanged={async () => {
+            await onChanged();
+            await detail.refresh();
+          }}
+        />
       ) : null}
     </section>
   );

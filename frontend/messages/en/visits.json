@@ -75,5 +75,68 @@
     "AREA_NOT_COVERED": "Visit area not covered",
     "OUTSIDE_AVAILABILITY": "Outside availability or on leave",
     "SCHEDULE_CONFLICT": "Schedule or travel-buffer conflict"
+  },
+  "taskOutcomes": {
+    "PENDING": "Pending",
+    "DONE": "Done",
+    "NOT_DONE": "Not done — reason recorded"
+  },
+  "changeStates": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Declined",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "changes": {
+    "title": "Customer change requests",
+    "intro": "Customer cancellation and reschedule requests. The original appointment stays unchanged until a request is approved.",
+    "empty": "No change requests match this filter.",
+    "open": "Open",
+    "close": "Close",
+    "type": "Type",
+    "cancelType": "Cancellation",
+    "rescheduleType": "Reschedule",
+    "urgency": "Urgency",
+    "normal": "Standard",
+    "late": "Late — priority review",
+    "currentWindow": "Current appointment",
+    "proposedWindow": "Proposed new time",
+    "customerReason": "Customer reason",
+    "requester": "Requested by customer",
+    "requestTime": "Requested at",
+    "approve": "Approve",
+    "confirm": "Confirm approval",
+    "confirmCancel": "This cancels the confirmed appointment. The original booking is kept unless the server confirms approval.",
+    "confirmReschedule": "This moves this occurrence only to the proposed time. Other occurrences remain unchanged.",
+    "reject": "Decline",
+    "rejectReason": "Decline reason (required)",
+    "approveHelp": "Approval rechecks the caregiver's eligibility, availability, conflicts and travel buffer; a conflict keeps the request pending.",
+    "decisionAt": "Decided at",
+    "decisionReason": "Decision reason",
+    "changePending": "This visit already has a pending change request.",
+    "cutoffExceeded": "The change deadline has passed."
+  },
+  "review": {
+    "status": "Review status",
+    "states": {
+      "NOT_REQUIRED": "Review not required",
+      "NEEDS_REVIEW": "Needs review",
+      "REVIEWED": "Reviewed"
+    },
+    "markReviewed": "Mark reviewed",
+    "reviewNote": "Review note (optional)",
+    "alreadyReviewed": "This completion is already reviewed.",
+    "actualStart": "Actual start",
+    "actualEnd": "Actual end",
+    "notes": "Visit notes",
+    "noNotes": "No notes were recorded for this visit.",
+    "draft": "Draft",
+    "finalized": "Finalized",
+    "addendum": "Correction",
+    "originalNote": "Original note",
+    "addCorrection": "Add correction",
+    "correctionBody": "Correction text",
+    "correctionReason": "Correction reason (required)",
+    "correctionHelp": "Corrections are appended with author and reason. The original note is preserved."
   }
 }

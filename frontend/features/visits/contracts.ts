@@ -17,6 +17,7 @@ export interface VisitSummary {
   id: string;
   status: VisitStatus;
   assignmentHealth: AssignmentHealth;
+  reviewStatus?: string;
   scheduledStartUtc: string;
   scheduledEndUtc: string;
   timezoneSnapshot: string;
@@ -34,6 +35,8 @@ export interface VisitListResult extends PageResult<VisitSummary> {
 
 export interface VisitDetailData extends Omit<VisitSummary, 'carePlanId'> {
   reviewStatus: string;
+  actualStartAt?: string | null;
+  actualEndAt?: string | null;
   occurrenceKey: string | null;
   cancelledReason: string | null;
   cancelledAt: string | null;
@@ -45,6 +48,7 @@ export interface VisitDetailData extends Omit<VisitSummary, 'carePlanId'> {
     descriptionSnapshot: string;
     isRequired: boolean;
     outcome: string | null;
+    notDoneReason?: string | null;
   }[];
   assignmentHistory: {
     id: string;

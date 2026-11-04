@@ -110,5 +110,15 @@ export function useVisitDetail({
     [execute, visit, visitId],
   );
 
-  return { visit, candidates, message, tone, pending, findCandidates, assign, reassign };
+  return {
+    visit,
+    candidates,
+    message,
+    tone,
+    pending,
+    findCandidates,
+    assign,
+    reassign,
+    refresh: reload,
+  };
 }
