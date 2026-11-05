@@ -11,6 +11,7 @@ import { createLogger, parseLogLevel } from '../logger';
 import { loadWorkerEnv } from './env';
 import { QUEUES } from './queues';
 import { workerHealthHandler } from './health';
+import { collectQueueStats } from './queue-stats';
 import { startNotifications } from './notifications';
 import { renderNotification, tenantNotificationUrl } from '../modules/notifications/templates';
 
@@ -91,6 +92,15 @@ const healthServer = http.createServer((req, res) => {
   void workerHealthHandler({
     ping: () => connection.ping(),
     now: () => new Date(),
+    queues: () =>
+      collectQueueStats({
+        db: getPrisma(),
+        now: () => new Date(),
+        queueCounts: async () => [
+          { name: QUEUES.REQUEST_EMAIL, counts: { ...(await queue.getJobCounts()) } },
+          { name: QUEUES.NOTIFICATION_EMAIL, counts: await notifications.counts() },
+        ],
+      }),
   })(req, res);
 });
 

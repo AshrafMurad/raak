@@ -960,12 +960,16 @@ specifications.
 | Express API | `GET /v1/health/ready` | PostgreSQL query | 200 when up, 503 when down |
 | Worker HTTP listener | `GET /health/live` | none | 200 |
 | Worker HTTP listener | `GET /health/ready` | Redis PING | 200 when up, 503 when down |
+| Worker HTTP listener | `GET /health/queues` | PostgreSQL aggregates + BullMQ job counts | 200 counts snapshot, 503 `QUEUE_STATS_UNAVAILABLE` when collection fails |
 | Next.js web | `GET /health/live` | none | 200 |
 | Next.js web | `GET /health/ready` | configured API readiness, 3-second timeout | 200 when ready, otherwise 503 |
 
 Liveness payload: `{"data":{"status":"ok","service":"api|web|worker","time":"<UTC ISO>"}}`.
 Readiness payload uses `status="ready"|"not_ready"` and
 `components={"db"|"redis"|"api":"UP"|"DOWN"}` for the applicable process.
+The worker queue endpoint returns aggregate counts only — no tenant,
+recipient or payload identifiers (`docs/15_DEPLOYMENT_AND_OPS.md` documents
+the snapshot shape and alerting guidance).
 The API echoes a validated/generated `X-Request-ID`, including on malformed JSON
 and 404 responses. Infrastructure readiness failures use the health payload;
 domain/API errors retain the standard error envelope.
