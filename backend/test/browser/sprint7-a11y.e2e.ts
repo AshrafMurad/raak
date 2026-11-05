@@ -785,6 +785,9 @@ try {
           'data-visit-status',
           'IN_PROGRESS',
         );
+        // The dialog intentionally blocks closing while the post-start refresh
+        // is pending; wait for the in-flight action to settle before Escape.
+        await expect(dialog.getByRole('button', { name: caregiverCopy.close, exact: true })).toBeEnabled();
         await noOverflow(page, `${base}/${locale}/caregiver/visits`);
         await page.keyboard.press('Escape');
         await expect(dialog).toHaveCount(0);
