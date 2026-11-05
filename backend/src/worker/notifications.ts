@@ -49,7 +49,13 @@ export function startNotifications(deps: {
   };
   const timer = setInterval(poll, 5000);
   poll();
-  return { close: async () => {
-    stopped = true; clearInterval(timer); await running; await worker.close(); await queue.close();
-  } };
+  return {
+    counts: async () => {
+      const counts = await queue.getJobCounts();
+      return { ...counts } as Record<string, number>;
+    },
+    close: async () => {
+      stopped = true; clearInterval(timer); await running; await worker.close(); await queue.close();
+    },
+  };
 }

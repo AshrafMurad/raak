@@ -131,12 +131,47 @@
 - Error and loading states never show unconfirmed success.
 
 ## Release gates
+
+Evidence-first: a box is checked only when the demonstrated evidence exists;
+open items remain explicitly listed. Operations runbook and rehearsal
+evidence: `15_DEPLOYMENT_AND_OPS.md` (Sprint 7 Session 6).
+
 - [ ] Core E2E journeys green in CI
-- [ ] All negative tenant/isolation tests green
-- [ ] Migration clean on empty DB and upgrade DB
-- [ ] Auth/session/CSRF/file upload review complete
-- [ ] Deterministic recurrence and lock tests pass under concurrency
-- [ ] Email templates verified; failed jobs observable and retryable
-- [ ] Backup restore and basic monitoring documented
-- [ ] No real patient data in test/demo systems
-[ ] Pilot and jurisdiction-specific security/regulatory launch readiness reviewed before real patient onboarding
+  — E01–E09 are demonstrated in AR/EN through the real browser harness and
+  recorded per sprint in `docs/plans/sprint-0N-status.md`; CI
+  (`.github/workflows`) runs lint/typecheck/unit-integration/migrations/seed/
+  builds but not the browser suites. Promoting the suites into CI remains
+  open.
+- [x] All negative tenant/isolation tests green
+  — backend suites include the I01–I20 denial/race matrices and tenant
+  segregation tests; recorded in sprint status docs and passing in CI and
+  locally (Session 6 rerun included).
+- [x] Migration clean on empty DB and upgrade DB
+  — empty-DB replay: 16 migrations applied, drift diff exit 0; restored-DB
+  status up to date with `deploy` no-op; CI replays migrations on a fresh DB
+  every run (`15_DEPLOYMENT_AND_OPS.md` §7). The pre-existing historical
+  checksum caveat on one long-lived local dev database stays owner-owned and
+  does not affect fresh environments.
+- [x] Auth/session/CSRF/file upload review complete
+  — recorded reviews: `docs/plans/sprint-02-security-review.md`, sprint 4
+  file/qualification review, and per-sprint review notes in
+  `docs/plans/sprint-0N-review.md` / session status. These are inline
+  self-reviews; an independent external security audit is not claimed and
+  stays advisable before live data.
+- [x] Deterministic recurrence and lock tests pass under concurrency
+  — U01–U03/U14, I08/I09/I13 plus assignment/completion race suites
+  (Sprints 5–6 status docs; suite rerun green in Session 6).
+- [x] Email templates verified; failed jobs observable and retryable
+  — AR/EN template matrix tests and versioned reminders (Sprint 7 Sessions
+  1/3), bounded retries with durable failed state, tenant delivery
+  observability endpoint, and worker `GET /health/queues` (Session 6).
+  Capture-adapter evidence only: the live provider/domain gate stays open.
+- [x] Backup restore and basic monitoring documented
+  — `15_DEPLOYMENT_AND_OPS.md`: backup/restore rehearsal (0 row-count
+  differences), empty-DB migration replay, rollback path, health/monitoring
+  hooks, log redaction review.
+- [x] No real patient data in test/demo systems
+  — synthetic seed and fixtures only (docs 12 test-data requirements);
+  sessions 1–6 reused synthetic data exclusively.
+- [ ] Pilot and jurisdiction-specific security/regulatory launch readiness reviewed before real patient onboarding
+  — external review; no compliance claims are made or implied.
