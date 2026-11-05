@@ -92,6 +92,17 @@ The care-plan and scheduling domains are decomposed behind stable interfaces
 - Local Docker Compose services; production deploy using Docker/Coolify with managed secrets and persistent data; no filesystem-only persistence for patient documents.
 - Versions remain to be pinned and validated at Sprint 0; do not treat these as claims about current latest packages.
 
+## Deployment configuration (Sprint 7, ADR-0019)
+The deployable production configuration now exists: `deploy/docker-compose
+.prod.yml` (postgres, redis, one-shot `migrate`, api, worker, web; fail-closed
+secret interpolation; optional object-storage/antivirus left to owner
+decisions) with `backend/Dockerfile` (one image for api + worker) and
+`frontend/Dockerfile` (Next standalone output behind a build-time variable,
+because this Next version refuses `next start` with standalone enabled).
+Secrets inventory, health-check wiring, backup/restore and rollback runbooks:
+`docs/15_DEPLOYMENT_AND_OPS.md`. The dev `backend/docker-compose.yml` remains
+backing-services-only per ADR-0003.
+
 ## Tenant routing
 1. Portal/workspace requests land at `<slug>.<baseDomain>`; platform requests land at the configured platform host.
 2. Per ADR-0008, the edge routes `/v1/*` on those hosts to Express and other paths to Next.js. It preserves only a validated external host and strips/sets forwarding headers itself.
@@ -150,7 +161,8 @@ filesystem fallback, public object ACL or simulated production scanner exists.
 ## Observability
 - Structured logs with correlationId and tenantId where safe; redact requester email, notes, tokens, addresses, auth headers; structured metric counts but no PHI tags.
 - Health checks: liveness and readiness for API/web/worker; queue depth, failed jobs, error rate, DB pool saturation.
-- Alerts for missing email jobs and unmatched critical events; backups and restore rehearsal.
+- Implemented (Sprint 7): JSON-lines logger with deny-by-default sensitive-key redaction (`src/logger.ts`, fenced by `test/logger.test.ts`); worker aggregate queue-depth/failed-job monitoring at worker `GET /health/queues` (counts only, docs 07/15). Alerts on these surfaces are operator configuration, not code.
+- Alerts for missing email jobs and unmatched critical events; backups and restore rehearsal — runbook and rehearsal evidence in `docs/15_DEPLOYMENT_AND_OPS.md`.
 - Audit access to sensitive records, document downloads, account permissions and changes; access logs controlled per retention policy.
 
 ## Failure behaviour

@@ -31,6 +31,7 @@ When specs conflict, use this precedence: (1) confirmed decisions in `01_PRODUCT
 | `12_TEST_PLAN.md` | Contract tests, concurrency, tenant isolation, E2E acceptance |
 | `13_IMPLEMENTATION_PLAN.md` | Work phases, dependencies, scope control and DoD |
 | `14_AGENT_SKILLS.md` | Installed agent skills, required task routing, precedence and verification |
+| `15_DEPLOYMENT_AND_OPS.md` | Deployment configuration, secrets, monitoring, backup/restore and rollback runbooks |
 | `GIT_STANDARDS.md` | Branches, atomic commits, pull requests, releases and agent push protocol |
 | `AGENTS.md` | Execution instructions for coding agents |
 

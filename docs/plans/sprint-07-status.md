@@ -582,3 +582,164 @@ dependency downloads above ~50 MB remain owner-run: prepare exact
 copy-pasteable commands with working directory and purpose, then wait. Do not
 close live-provider/storage/jurisdiction gates from local capture evidence;
 keep ADR-0017 report semantics and ADR-0018 measurement posture intact.
+
+## Session 6 — Deployment, backup/restore and release gates
+
+Date: 2026-11-05. Branch `feat/sprint7-deploy-release` from current `main` at
+`8ccd124`; Session 5 PR #13 confirmed MERGED through origin/main history and
+local main fast-forwarded before branching/coding. Local commits only; push,
+merge and release decisions remain the owner's. Plan:
+`docs/plans/sprint-07-deploy-release.md`; interpretations in ADR-0019.
+
+### Implemented
+
+- Worker monitoring hook `GET /health/queues` on the existing worker health
+  listener: aggregate counts-only snapshot (pending/sending/failed +
+  oldest-pending age for `email_deliveries` and `notification_deliveries`,
+  unprocessed-outbox depth/age, per-queue BullMQ job counts), Zod contract
+  `QueueHealthSnapshotSchema` in `backend/src/contracts/health.ts`, collector
+  `backend/src/worker/queue-stats.ts`, handler route with 503
+  `QUEUE_STATS_UNAVAILABLE` on collection failure, `startNotifications` now
+  exposes its queue counts. No tenant/recipient/payload identifiers; unit
+  handler tests plus a real-DB/Redis integration test assert the counts and a
+  serialized snapshot containing no synthetic identifiers.
+- Production images: `backend/Dockerfile` (node:24-slim, two-stage, one image
+  for api + worker + one-shot migrate; non-root; no `.env` baked in) and
+  `frontend/Dockerfile` (node:24-alpine, Next standalone server, client built
+  same-origin for ADR-0008 routing) with `.dockerignore` files.
+- `deploy/docker-compose.prod.yml`: postgres/redis (named volumes,
+  healthchecks), one-shot `migrate` service (`prisma migrate deploy`), api,
+  worker, web with healthcheck wiring and `service_completed_successfully`
+  ordering; fail-closed `${VAR:?...}` secret interpolation; optional object
+  storage/antivirus left as commented owner profiles; no host ports published.
+  `deploy/.env.example` placeholder inventory; `deploy/README.md` pointer.
+- Prisma CLI moved from devDependencies to dependencies so the runtime image
+  can run `migrate deploy` (Prisma 7 driver-adapter client has no native
+  engine to ship); lockfile updated offline.
+- `frontend/next.config.ts` enables `output: 'standalone'` only when
+  `NEXT_OUTPUT_STANDALONE=1` (set inside the Dockerfile). This Next version
+  (16.4.3) explicitly refuses `next start` with standalone output, and the
+  browser harness starts the production server with `next start`, so local
+  builds stay default. Both modes verified locally: standalone `node
+  server.js` (live 200; `/` 307 → `/ar`; `/ar`, `/en` 200) and default `next
+  start` (same checks, refusal warning gone, no standalone emitted).
+- Backup/restore runbook + rehearsal on disposable data (docs 15 §6):
+  `pg_dump -Fc` 349,800 bytes → `pg_restore` into a fresh database with **zero
+  row-count differences** across tenants/staff/customer accounts/patients/
+  visits/quotes/requests/outbox/email+notification deliveries/audit/
+  _prisma_migrations; `migrate status` up to date and `deploy` no-op on the
+  restored DB; rehearsal database and dump removed.
+- Migration replay on an empty database (docs 15 §7): 16 migrations applied,
+  "All migrations have been successfully applied", drift diff exit 0;
+  CI's fresh-DB replay noted. Rollback path documented
+  (restore + matching image tag, forward-only migrations, `migrate resolve`
+  misuse excluded). Pre-existing local sprint3 checksum caveat remains
+  owner-owned and is not repaired or hidden.
+- Structured log redaction review: no code change needed; verified
+  deny-by-default sensitive-key redaction, caps and HTTP-layer minimalism in
+  `src/logger.ts` fenced by `test/logger.test.ts`; residual key-based limits
+  documented (docs 15 §4) with the IDs-only payload convention as mitigation.
+- `docs/15_DEPLOYMENT_AND_OPS.md` (deployment procedure, secrets inventory,
+  health/monitoring matrix, backup/restore, rollback, redaction review,
+  external gates) indexed in `docs/README.md`; docs 07/08 updated (queue
+  endpoint row; deployment/observability implementation pointers);
+  ADR-0019 records interpretations; docs 12 release gates updated with
+  evidence links — "Core E2E journeys green in CI" and the jurisdictional
+  review stay honestly unchecked.
+- A11y harness race fix (test-only, red/green): the caregiver dialog blocks
+  closing while the post-start refresh is pending; the harness pressed Escape
+  during that window so `toHaveCount(0)` failed at
+  `sprint7-a11y.e2e.ts:790` in three runs. The harness now waits for the
+  dialog's close button to become enabled before Escape. All 22 groups pass;
+  no product authorization/behavior changed.
+
+### Key files
+
+`backend/src/contracts/health.ts`, `backend/src/worker/{health.ts,index.ts,
+notifications.ts,queue-stats.ts}`, `backend/test/worker-health.test.ts`,
+`backend/test/notifications/queue-stats.integration.test.ts`,
+`backend/test/browser/sprint7-a11y.e2e.ts`, `backend/{Dockerfile,
+.dockerignore,package.json,package-lock.json}`,
+`frontend/{Dockerfile,.dockerignore,next.config.ts}`, `deploy/{docker-compose
+.prod.yml,.env.example,README.md}`, `docs/15_DEPLOYMENT_AND_OPS.md`,
+`docs/adr/ADR-0019-sprint7-deployment-and-release.md`, docs 07/08/12/README,
+`docs/plans/sprint-07-deploy-release.md`.
+
+### Exact verification (commands run separately)
+
+Working directory `backend/`:
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0, no warnings |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS: 45 files / 335 tests (4 new monitoring tests) |
+| `npm run build` | PASS: API and worker bundles |
+| `npm exec -- prisma validate` | PASS: schema valid |
+| `npm exec -- prisma migrate status` | PASS: 16 migrations, database up to date |
+| `npm exec -- prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | PASS: no difference, exit 0 |
+| `npm run test:browser` | first invocation failed on one transient `/en/track` navigation (known wildcard-localhost flake, no product change); separate rerun PASS E01/E02 AR/EN and all 10 production UI matrix groups |
+| `npm run test:browser:sprint3` | PASS E03/I10/I11 AR/EN and workspace matrices |
+| `npm run test:browser:sprint4` | PASS E04/F05/F06 AR/EN and qualification/private-file matrices |
+| `npm run test:browser:sprint5` | PASS AR/EN plans/assignment/leave/reassignment |
+| `npm run test:browser:sprint6` | PASS E06/E07 AR/EN and completion/history/changes/reflow |
+| `npm run test:browser:sprint7-inbox` | PASS staff/customer AR/EN inbox/preferences/policy flows |
+| `npm run test:browser:sprint7-templates` | PASS AR/EN reminder CTA and guest verification regressions |
+| `npm run test:browser:sprint7-reports` | PASS E08 AR/EN and audit pagination |
+| `npm run test:browser:sprint7-a11y` | three runs failed at the caregiver Escape race (see above) until the harness fix; final run PASS all 22 groups; backend `npm run lint` rerun PASS after the harness edit |
+
+Working directory `frontend/`:
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` | PASS, exit 0 |
+| `npm run typecheck` | PASS, exit 0 |
+| `npm run test` | PASS: 19 files / 87 tests including i18n parity |
+| `npm run build` | PASS (default output; `next start` compatibility re-verified) |
+| `npm run build:browser` | PASS, executed before the browser suites |
+
+Repository root / deployment:
+
+| Command | Result |
+| --- | --- |
+| `docker compose --env-file deploy/.env.example -f deploy/docker-compose.prod.yml config --quiet` | PASS, exit 0 (all six services resolved; no images pulled) |
+| same `config --quiet` without the env file | FAIL closed, exit 1 with required-variable errors for POSTGRES_PASSWORD/SESSION_SECRET/BASE_DOMAIN/PLATFORM_HOST/BACKEND_IMAGE |
+| `docker build` (backend, frontend) | NOT RUN — owner-delegated (base image + in-image npm ci downloads exceed ~50 MB); exact commands in docs 15 §5 |
+| backup/restore + empty-DB rehearsals | PASS as recorded in docs 15 §6–§7; disposable databases dropped |
+| standalone `node server.js` + default `next start` smoke | PASS as recorded above |
+| `git diff --check` | PASS, exit 0 |
+
+Known pg concurrent-query deprecation warnings appear in
+integration/browser output; they are not test failures. No dependencies,
+images, browser binaries or other downloads were made by the agent. The
+lockfile update ran with `--package-lock-only --offline` (no network).
+
+### Not implemented / remaining risks and gates
+
+- No image builds, stack bring-up, registry pushes, DNS/TLS setup or log
+  shipping were performed — all owner-delegated with exact commands in
+  docs 15 §5. Coolify setup is documented but not executed; no live
+  deployment exists.
+- "Core E2E journeys green in CI" remains unchecked by design: CI runs
+  lint/typecheck/unit-integration/migrations/seed/builds, not browser suites.
+  Reviews to date are inline/self-review; no independent external audit is
+  claimed.
+- Live email provider/domain, private S3, ClamAV engine, jurisdiction-specific
+  launch review and the historical local-DB checksum caveat remain open owner
+  gates. Monitoring alerting is guidance, not deployed alerting
+  infrastructure. No MVP-complete, production-readiness or compliance claim
+  is made.
+- Image size is unoptimized (full node_modules copied for correctness);
+  recorded as a known tradeoff in ADR-0019/docs 15, to revisit only with
+  owner request.
+
+### Next-session handoff
+
+Sprint 7's six sessions are implemented; remaining work is owner execution
+and external gates: run the delegated image builds/stack rehearsal (docs 15
+§5), provide email/S3/scanner configuration, schedule backups per docs 15 §6,
+decide on CI browser-suite promotion, and complete the jurisdictional launch
+review before any real patient data. Keep docs 12's unchecked gates
+unchecked until demonstrated; treat ADR-0019's deployment interpretations as
+the baseline for deployment review. No further agent sessions are planned for
+Sprint 7.
