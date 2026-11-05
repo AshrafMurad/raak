@@ -1,0 +1,159 @@
+name: raak
+# Production/Coolify deployment stack (Sprint 7 Session 6, ADR-0019).
+#
+# Secrets come only from the environment (Coolify managed secrets or a
+# protected env file; see deploy/.env.example). Required variables fail closed
+# with ${VAR:?...} so an incomplete configuration never starts a stack.
+#
+# TLS termination and tenant routing are handled by the Coolify edge (Traefik)
+# per ADR-0008: PLATFORM_HOST and <slug>.BASE_DOMAIN serve the web container,
+# with /v1/* on those hosts routed to api:3001. No host ports are published by
+# this file; every service is reachable only inside the compose network.
+#
+# Image builds download well above 50 MB and are owner-run (see docs/15):
+#   backend:  docker build -t raak-backend:local backend
+#   frontend: docker build -t raak-frontend:local frontend
+# then set BACKEND_IMAGE / FRONTEND_IMAGE accordingly.
+
+x-backend-env: &backend-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:-raak}:${POSTGRES_PASSWORD:?set a URL-safe POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-raak}
+  REDIS_URL: redis://redis:6379
+  SESSION_SECRET: ${SESSION_SECRET:?set a SESSION_SECRET of at least 32 bytes}
+  BASE_DOMAIN: ${BASE_DOMAIN:?set the public BASE_DOMAIN}
+  PLATFORM_HOST: ${PLATFORM_HOST:?set the public PLATFORM_HOST}
+  TRUSTED_PROXY_HOSTS: ${TRUSTED_PROXY_HOSTS:-}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-}
+  OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-}
+  OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  CLAMAV_HOST: ${CLAMAV_HOST:-}
+  CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-raak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a URL-safe POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-raak}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-raak} -d $${POSTGRES_DB:-raak}']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE to the owner-built backend image}
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: no
+
+  api:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE to the owner-built backend image}
+    command: ['node', 'dist/index.js']
+    environment:
+      <<: *backend-env
+      API_PORT: '3001'
+    expose:
+      - '3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', "-e", "fetch('http://127.0.0.1:3001/v1/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  worker:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE to the owner-built backend image}
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *backend-env
+      WORKER_HEALTH_PORT: '8081'
+    expose:
+      - '8081'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', "-e", "fetch('http://127.0.0.1:8081/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    image: ${FRONTEND_IMAGE:?set FRONTEND_IMAGE to the owner-built frontend image}
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      BASE_DOMAIN: ${BASE_DOMAIN:?set the public BASE_DOMAIN}
+      PLATFORM_HOST: ${PLATFORM_HOST:?set the public PLATFORM_HOST}
+      API_INTERNAL_BASE_URL: http://api:3001
+    expose:
+      - '3000'
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', "-e", "fetch('http://127.0.0.1:3000/health/live').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Optional private object storage and antivirus profiles stay owner decisions
+  # (docs/15): uploads fail closed (503) while OBJECT_STORAGE_* is unset and
+  # files quarantine while CLAMAV_HOST is unset. Provide pinned images before
+  # enabling; never commit credentials.
+  #
+  # object-storage:
+  #   image: <pinned MinIO image>
+  #   command: ['server', '/data', '--console-address', ':9001']
+  #   profiles: ['object-storage']
+  #   volumes: [object-data:/data]
+  #
+  # antivirus:
+  #   image: <pinned ClamAV image with INSTREAM on 3310>
+  #   profiles: ['antivirus']
+
+volumes:
+  pg-data:
+  redis-data:
